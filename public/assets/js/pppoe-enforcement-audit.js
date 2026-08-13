@@ -1,0 +1,8 @@
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  async function json(url) { const r = await fetch(url, {headers:{'Accept':'application/json'}}); if(!r.ok) throw new Error('Request failed'); return r.json(); }
+  function row(x) { const status=esc(x.status); return `<article class="audit-row"><div class="row-head"><strong>${esc(x.username)}</strong><span class="status ${status}">${status}</span></div><div class="meta"><div>Router: <b>${esc(x.router_id)}</b></div><div>Action: <b>${esc(x.action)}</b></div><div>Original: <b>${esc(x.original_profile || '—')}</b></div><div>Target: <b>${esc(x.target_profile || '—')}</b></div><div>Reason: <b>${esc(x.reason)}</b></div><div>Actor: <b>${esc(x.actor_id || 'System')}</b></div><div>Time: <b>${esc(x.created_at)}</b></div><div>Error: <b>${esc(x.error_message || '—')}</b></div></div></article>`; }
+  async function load() { try { const status=$('status').value; const qs=status?`?status=${encodeURIComponent(status)}`:''; const [s,l]=await Promise.all([json('/api/mikrotik/pppoe/enforcement-audit/summary'),json('/api/mikrotik/pppoe/enforcement-audit'+qs)]); $('success').textContent=s.data.success??0; $('failed').textContent=s.data.failed??0; $('mismatch').textContent=s.data.mismatch??0; $('list').innerHTML=l.data.length?l.data.map(row).join(''):'<div class="audit-row muted">No audit records found.</div>'; } catch(e) { $('list').innerHTML='<div class="audit-row">Unable to load audit data.</div>'; } }
+  $('status').addEventListener('change', load); $('refresh').addEventListener('click', load); load();
+})();
