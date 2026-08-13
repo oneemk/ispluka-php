@@ -1,0 +1,11 @@
+Options -Indexes
+
+RewriteEngine On
+
+# Do not rewrite existing files or directories.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Route all application requests through the public front controller.
+RewriteRule ^ index.php [L]
