@@ -2,9 +2,30 @@
 
 declare(strict_types=1);
 
+use Ispluka\Controllers\Auth\LoginController;
+use Ispluka\Core\Auth\AuthManager;
 use Ispluka\Core\Http\Response;
 use Ispluka\Core\Routing\Router;
+use Ispluka\Core\Security\Csrf;
 
-return static function (Router $router): void {
-    $router->get('/', static fn (): Response => Response::text('ISPLUKA application bootstrap is running.'));
+return static function (
+    Router $router,
+    LoginController $loginController,
+    AuthManager $auth,
+    Csrf $csrf,
+): void {
+    $router->get('/', static function () use ($auth, $csrf): Response {
+        if (!$auth->check()) {
+            return Response::redirect('/login');
+        }
+
+        $token = htmlspecialchars($csrf->token(), ENT_QUOTES, 'UTF-8');
+        $userId = (int) $auth->userId();
+        $logout = '<form method="post" action="/logout"><input type="hidden" name="_csrf" value="' . $token . '"><button type="submit">Sign out</button></form>';
+        return Response::text('<!doctype html><html><head><meta charset="utf-8"><title>ISPLUKA</title></head><body><h1>ISPLUKA</h1><p>Authenticated user: ' . $userId . '</p>' . $logout . '</body></html>');
+    });
+
+    $router->get('/login', [$loginController, 'show']);
+    $router->post('/login', [$loginController, 'login']);
+    $router->post('/logout', [$loginController, 'logout']);
 };
