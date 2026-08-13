@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: ISPLUKA REST API
+  version: 1.0.0
+  description: Multi-tenant ISP Billing and Management API
+servers:
+  - url: /api/v1
+security:
+  - sessionAuth: []
+paths:
+  /health:
+    get:
+      security: []
+      responses:
+        '200': {description: Healthy}
+  /customers:
+    get:
+      summary: List tenant customers
+      responses:
+        '200': {description: Customer list}
+    post:
+      summary: Create customer
+      responses:
+        '201': {description: Created}
+  /customers/{id}:
+    get:
+      summary: Get customer
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200': {description: Customer}
+        '404': {description: Not found}
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: ispluka_session
