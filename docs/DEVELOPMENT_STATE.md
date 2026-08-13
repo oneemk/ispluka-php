@@ -25,6 +25,7 @@
 15. Admin dashboard summary service + mobile-first UI foundation
 16. Reseller portal data model + dashboard/ledger foundation
 17. Reseller authorization + payment collection + commission settlement + responsive UI foundation
+18. Customer portal service + authorization + responsive UI foundation
 
 ## UI terminology
 - Database/API may use `grace_days`.
@@ -41,10 +42,10 @@
 - Reseller profiles can own customers, have commission/credit settings, and maintain a transaction-safe ledger.
 - Reseller authorization prevents cross-reseller customer access.
 - Reseller payment collection validates ownership, settles invoice payment, and calculates commission into the reseller ledger.
-- Mobile reseller portal CSS foundation is present.
+- Customer portal exposes dashboard, services, invoices and payment history with tenant/customer authorization.
+- Mobile-first customer portal CSS foundation is present.
 
 ## Next work order
-18. Customer portal UI/API foundation
 19. BTRC/reporting/inventory/POS modules
 20. cPanel cron/deployment/observability
 21. Full integration/security/performance tests and release checklist
@@ -62,10 +63,10 @@
 - Deployment target remains Namecheap shared hosting/cPanel; never move to VPS unless explicitly requested.
 
 ## Last completed
-Step 36: Complete reseller authorization/payment/commission foundation and responsive UI.
+Step 37: Customer portal service, authorization and responsive UI foundation.
 
 ## Immediate next
-Step 37: Customer portal UI/API foundation.
+Step 38: BTRC reporting + advanced reports + inventory + POS foundation.
 
 ## Continuation instruction
 If the user returns after a long gap and says "next", "পরবর্তী", or "করুন", read this file first and continue from the Immediate next item. Work in a large coherent production batch and update this file after each completed step.
