@@ -7,6 +7,7 @@ namespace Ispluka\Controllers;
 use Ispluka\Core\Auth\AuthManager;
 use Ispluka\Core\Http\Request;
 use Ispluka\Core\Http\Response;
+use Ispluka\Core\Security\Encryption;
 use Ispluka\Services\CustomerAccessService;
 use InvalidArgumentException;
 use Throwable;
@@ -16,6 +17,7 @@ final class CustomerServiceController
     public function __construct(
         private readonly CustomerAccessService $services,
         private readonly AuthManager $auth,
+        private readonly Encryption $encryption,
     ) {
     }
 
@@ -33,7 +35,7 @@ final class CustomerServiceController
     {
         try {
             $secret = $request->input('secret');
-            $encryptedSecret = is_string($secret) && $secret !== '' ? base64_encode($secret) : null;
+            $encryptedSecret = is_string($secret) && $secret !== '' ? $this->encryption->encrypt($secret) : null;
             $id = $this->services->create($this->tenantId(), (int) $request->input('customer_id', 0), [
                 'package_id' => $request->input('package_id'),
                 'router_id' => $request->input('router_id'),
