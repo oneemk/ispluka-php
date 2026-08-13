@@ -21,48 +21,38 @@ final class RouterOsClient
     public function connect(string $username, string $password): void
     {
         $scheme = $this->port === 8729 ? 'tls' : 'tcp';
-        $context = stream_context_create($scheme === 'tls' ? [
-            'ssl' => [
-                'verify_peer' => $this->verifyTls,
-                'verify_peer_name' => $this->verifyTls,
-                'allow_self_signed' => !$this->verifyTls,
-            ],
-        ] : []);
+        $context = stream_context_create($scheme === 'tls' ? ['ssl' => [
+            'verify_peer' => $this->verifyTls,
+            'verify_peer_name' => $this->verifyTls,
+            'allow_self_signed' => !$this->verifyTls,
+        ]] : []);
         $address = sprintf('%s://%s:%d', $scheme, $this->host, $this->port);
-        $errno = 0;
-        $errstr = '';
+        $errno = 0; $errstr = '';
         $this->socket = @stream_socket_client($address, $errno, $errstr, $this->timeout, STREAM_CLIENT_CONNECT, $context);
-        if (!is_resource($this->socket)) {
-            throw new RuntimeException("Unable to connect to RouterOS API: {$errstr}");
-        }
+        if (!is_resource($this->socket)) throw new RuntimeException("Unable to connect to RouterOS API: {$errstr}");
         stream_set_timeout($this->socket, $this->timeout);
         $this->writeSentence(['/login', '=name=' . $username, '=password=' . $password]);
         $reply = $this->readSentence();
-        if (($reply['!trap']['=message'] ?? null) !== null) {
-            $this->disconnect();
-            throw new RuntimeException('RouterOS authentication failed.');
-        }
+        if (isset($reply['!trap'])) { $this->disconnect(); throw new RuntimeException('RouterOS authentication failed.'); }
         $this->loggedIn = true;
     }
 
     /** @return list<array<string,string>> */
     public function command(string $path, array $arguments = []): array
     {
-        if (!$this->loggedIn) {
-            throw new RuntimeException('RouterOS client is not authenticated.');
-        }
+        if (!$this->loggedIn) throw new RuntimeException('RouterOS client is not authenticated.');
         $words = [$path];
         foreach ($arguments as $key => $value) {
             if ($value === null) continue;
-            $words[] = str_starts_with((string) $key, '=') ? (string) $key . '=' . (string) $value : '=' . $key . '=' . (string) $value;
+            $key = (string) $key;
+            $prefix = str_starts_with($key, '=') || str_starts_with($key, '?') ? $key : '=' . $key;
+            $words[] = $prefix . '=' . (string) $value;
         }
         $this->writeSentence($words);
         $rows = [];
         while (true) {
             $sentence = $this->readSentence();
-            if (isset($sentence['!trap'])) {
-                throw new RuntimeException($sentence['!trap']['=message'] ?? 'RouterOS command failed.');
-            }
+            if (isset($sentence['!trap'])) throw new RuntimeException($sentence['!trap']['=message'] ?? 'RouterOS command failed.');
             if (isset($sentence['!done'])) break;
             if (isset($sentence['!re'])) $rows[] = $sentence['!re'];
         }
@@ -72,14 +62,10 @@ final class RouterOsClient
     public function disconnect(): void
     {
         if (is_resource($this->socket)) @fclose($this->socket);
-        $this->socket = null;
-        $this->loggedIn = false;
+        $this->socket = null; $this->loggedIn = false;
     }
 
-    public function __destruct()
-    {
-        $this->disconnect();
-    }
+    public function __destruct() { $this->disconnect(); }
 
     private function writeSentence(array $words): void
     {
@@ -100,13 +86,11 @@ final class RouterOsClient
 
     private function writeRaw(string $data): void
     {
-        $remaining = strlen($data);
-        $offset = 0;
-        while ($remaining > 0) {
+        $offset = 0; $length = strlen($data);
+        while ($offset < $length) {
             $written = @fwrite($this->socket, substr($data, $offset));
             if ($written === false || $written === 0) throw new RuntimeException('RouterOS API write failed.');
             $offset += $written;
-            $remaining -= $written;
         }
     }
 
@@ -117,15 +101,11 @@ final class RouterOsClient
         while (true) {
             $word = $this->readWord();
             if ($word === '') break;
-            if ($word[0] === '!') {
-                $result[$word] = [];
-                continue;
-            }
-            if (str_starts_with($word, '=')) {
+            if ($word[0] === '!') { $result[$word] = []; continue; }
+            if ($word[0] === '=' && !empty($result)) {
                 $parts = explode('=', substr($word, 1), 2);
-                if (count($parts) === 2 && !empty($result)) {
-                    $keys = array_keys($result);
-                    $last = end($keys);
+                if (count($parts) === 2) {
+                    $keys = array_keys($result); $last = end($keys);
                     $result[$last]['=' . $parts[0]] = $parts[1];
                 }
             }
@@ -141,10 +121,7 @@ final class RouterOsClient
         elseif (($first & 0xc0) === 0x80) $length = (($first & 0x3f) << 8) | ord($this->readRaw(1));
         elseif (($first & 0xe0) === 0xc0) $length = (($first & 0x1f) << 16) | (ord($this->readRaw(1)) << 8) | ord($this->readRaw(1));
         elseif (($first & 0xf0) === 0xe0) $length = (($first & 0x0f) << 24) | (ord($this->readRaw(1)) << 16) | (ord($this->readRaw(1)) << 8) | ord($this->readRaw(1));
-        else {
-            $bytes = unpack('N', $this->readRaw(4));
-            $length = $bytes[1];
-        }
+        else $length = unpack('N', $this->readRaw(4))[1];
         return $this->readRaw($length);
     }
 
@@ -153,9 +130,7 @@ final class RouterOsClient
         $data = '';
         while (strlen($data) < $length) {
             $chunk = @fread($this->socket, $length - strlen($data));
-            if ($chunk === false || $chunk === '') {
-                throw new RuntimeException('RouterOS API read timeout or connection closed.');
-            }
+            if ($chunk === false || $chunk === '') throw new RuntimeException('RouterOS API read timeout or connection closed.');
             $data .= $chunk;
         }
         return $data;
