@@ -29,8 +29,8 @@ final class CustomerServiceRepository
     public function create(int $tenantId, int $customerId, array $data): int
     {
         $statement = $this->database->pdo()->prepare(
-            'INSERT INTO customer_services (tenant_id, customer_id, package_id, router_id, service_type, username, secret_hash, mac_address, ip_address, start_date, next_billing_date, status, auto_suspend, settings)
-             VALUES (:tenant_id, :customer_id, :package_id, :router_id, :service_type, :username, :secret_hash, :mac_address, :ip_address, :start_date, :next_billing_date, :status, :auto_suspend, :settings)
+            'INSERT INTO customer_services (tenant_id, customer_id, package_id, router_id, service_type, username, encrypted_secret, mac_address, ip_address, start_date, next_billing_date, status, auto_suspend, settings)
+             VALUES (:tenant_id, :customer_id, :package_id, :router_id, :service_type, :username, :encrypted_secret, :mac_address, :ip_address, :start_date, :next_billing_date, :status, :auto_suspend, :settings)
              RETURNING id'
         );
         $statement->execute([
@@ -40,7 +40,7 @@ final class CustomerServiceRepository
             'router_id' => $data['router_id'] ?? null,
             'service_type' => $data['service_type'],
             'username' => $data['username'] ?? null,
-            'secret_hash' => $data['secret_hash'] ?? null,
+            'encrypted_secret' => $data['encrypted_secret'] ?? null,
             'mac_address' => $data['mac_address'] ?? null,
             'ip_address' => $data['ip_address'] ?? null,
             'start_date' => $data['start_date'],
