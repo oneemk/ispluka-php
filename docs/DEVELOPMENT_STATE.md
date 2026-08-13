@@ -22,16 +22,23 @@
 12. REST API routing/controllers/authentication foundation + OpenAPI documentation
 13. Payment gateway adapter foundation
 14. Overdue billing policy + automatic suspend/restore lifecycle
+15. Admin dashboard summary service + mobile-first UI foundation
+
+## UI terminology
+- Database/API may use `grace_days`.
+- User-facing label must be **Extra Time**.
+- Never display “Grace Period” in the UI.
 
 ## Current state
 - Billing automation and overdue processing exist.
-- Tenant billing policies define grace days and auto suspend/restore.
+- Tenant billing policies define Extra Time (stored as grace_days) and auto suspend/restore.
 - Overdue services are changed to suspended and a MikroTik suspend job is queued.
 - Successful payment settlement attempts customer service restoration when no overdue invoice remains.
 - Network worker executes provision/suspend/restore with retry/backoff.
+- Dashboard summary exposes customers, active/suspended services, overdue invoices, outstanding amount and current-month collection.
+- Mobile-first dashboard CSS foundation is present.
 
 ## Next work order
-15. Admin dashboard + mobile-first UI
 16. Reseller portal
 17. Customer portal UI
 18. BTRC/reporting/inventory/POS modules
@@ -51,10 +58,10 @@
 - Deployment target remains Namecheap shared hosting/cPanel; never move to VPS unless explicitly requested.
 
 ## Last completed
-Step 33: overdue billing policy + automatic MikroTik suspend/restore lifecycle.
+Step 34: Admin dashboard + mobile-first UI foundation, with Extra Time UI terminology.
 
 ## Immediate next
-Step 34: Admin dashboard + mobile-first UI.
+Step 35: Reseller portal.
 
 ## Continuation instruction
 If the user returns after a long gap and says "next", "পরবর্তী", or "করুন", read this file first and continue from the Immediate next item. Work in a large coherent production batch and update this file after each completed step.
