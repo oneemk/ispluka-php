@@ -1,0 +1,15 @@
+<?php
+
+declare(strict_types=1);
+use PDO;
+return new class {
+ public function up(PDO $pdo):void{
+  $pdo->exec("CREATE TABLE IF NOT EXISTS inventory_items (id BIGSERIAL PRIMARY KEY,tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,sku VARCHAR(80) NOT NULL,name VARCHAR(180) NOT NULL,category VARCHAR(100),unit VARCHAR(30) NOT NULL DEFAULT 'pcs',purchase_price BIGINT NOT NULL DEFAULT 0,sale_price BIGINT NOT NULL DEFAULT 0,stock_qty NUMERIC(14,3) NOT NULL DEFAULT 0,reorder_level NUMERIC(14,3) NOT NULL DEFAULT 0,active BOOLEAN NOT NULL DEFAULT TRUE,created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(tenant_id,sku))");
+  $pdo->exec("CREATE TABLE IF NOT EXISTS inventory_movements (id BIGSERIAL PRIMARY KEY,tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,item_id BIGINT NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,type VARCHAR(30) NOT NULL,quantity NUMERIC(14,3) NOT NULL,reference_type VARCHAR(50),reference_id BIGINT,note TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+  $pdo->exec('CREATE INDEX IF NOT EXISTS idx_inventory_movements_item ON inventory_movements(tenant_id,item_id,created_at DESC)');
+  $pdo->exec("CREATE TABLE IF NOT EXISTS pos_sales (id BIGSERIAL PRIMARY KEY,tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,customer_id BIGINT NULL REFERENCES customers(id) ON DELETE SET NULL,invoice_id BIGINT NULL REFERENCES invoices(id) ON DELETE SET NULL,subtotal BIGINT NOT NULL DEFAULT 0,discount BIGINT NOT NULL DEFAULT 0,total BIGINT NOT NULL DEFAULT 0,status VARCHAR(30) NOT NULL DEFAULT 'completed',created_by BIGINT NULL REFERENCES users(id) ON DELETE SET NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+  $pdo->exec("CREATE TABLE IF NOT EXISTS pos_sale_items (id BIGSERIAL PRIMARY KEY,sale_id BIGINT NOT NULL REFERENCES pos_sales(id) ON DELETE CASCADE,item_id BIGINT NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,quantity NUMERIC(14,3) NOT NULL,unit_price BIGINT NOT NULL,line_total BIGINT NOT NULL)");
+  $pdo->exec("CREATE TABLE IF NOT EXISTS btrc_reports (id BIGSERIAL PRIMARY KEY,tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,period_start DATE NOT NULL,period_end DATE NOT NULL,status VARCHAR(30) NOT NULL DEFAULT 'draft',payload JSONB NOT NULL DEFAULT '{}'::jsonb,generated_by BIGINT NULL REFERENCES users(id) ON DELETE SET NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(tenant_id,period_start,period_end))");
+ }
+ public function down(PDO $pdo):void{$pdo->exec('DROP TABLE IF EXISTS btrc_reports');$pdo->exec('DROP TABLE IF EXISTS pos_sale_items');$pdo->exec('DROP TABLE IF EXISTS pos_sales');$pdo->exec('DROP TABLE IF EXISTS inventory_movements');$pdo->exec('DROP TABLE IF EXISTS inventory_items');}
+};
