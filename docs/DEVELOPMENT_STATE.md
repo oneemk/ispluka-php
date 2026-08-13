@@ -20,18 +20,17 @@
 10. Cron/billing/network automation
 11. Reports + audit log + REST API foundation
 12. REST API routing/controllers/authentication foundation + OpenAPI documentation
+13. Payment gateway adapter foundation
+14. Overdue billing policy + automatic suspend/restore lifecycle
 
 ## Current state
 - Billing automation and overdue processing exist.
-- Network jobs support provision/suspend/restore with retry/backoff.
-- Audit log schema/service and reporting services exist.
-- REST API supports route parameters and session/role authentication middleware.
-- OpenAPI contract is stored at docs/openapi.yaml.
-- Existing ApiResponse abstraction is reused.
+- Tenant billing policies define grace days and auto suspend/restore.
+- Overdue services are changed to suspended and a MikroTik suspend job is queued.
+- Successful payment settlement attempts customer service restoration when no overdue invoice remains.
+- Network worker executes provision/suspend/restore with retry/backoff.
 
 ## Next work order
-13. Complete payment gateway adapters/webhooks/reconciliation/idempotency
-14. Auto suspend/restore policy integration with overdue invoices
 15. Admin dashboard + mobile-first UI
 16. Reseller portal
 17. Customer portal UI
@@ -52,10 +51,10 @@
 - Deployment target remains Namecheap shared hosting/cPanel; never move to VPS unless explicitly requested.
 
 ## Last completed
-Step 31: REST API routing/controllers/authentication + OpenAPI documentation.
+Step 33: overdue billing policy + automatic MikroTik suspend/restore lifecycle.
 
 ## Immediate next
-Step 32: Complete payment gateway adapters/webhooks/reconciliation/idempotency.
+Step 34: Admin dashboard + mobile-first UI.
 
 ## Continuation instruction
 If the user returns after a long gap and says "next", "পরবর্তী", or "করুন", read this file first and continue from the Immediate next item. Work in a large coherent production batch and update this file after each completed step.
