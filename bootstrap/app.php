@@ -5,12 +5,14 @@ declare(strict_types=1);
 use Ispluka\Controllers\Auth\LoginController;
 use Ispluka\Core\Application;
 use Ispluka\Core\Auth\AuthManager;
+use Ispluka\Core\Auth\Authorization;
 use Ispluka\Core\Auth\Session;
 use Ispluka\Core\Database\Database;
 use Ispluka\Core\Environment;
 use Ispluka\Core\Exceptions\Handler;
 use Ispluka\Core\Routing\Router;
 use Ispluka\Core\Security\Csrf;
+use Ispluka\Middleware\Authorize;
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -24,6 +26,8 @@ $databaseConfig = require $root . '/config/database.php';
 $database = new Database($databaseConfig);
 $session = new Session();
 $auth = new AuthManager($database, $session);
+$authorization = new Authorization($database, $auth);
+$authorize = new Authorize($authorization);
 $csrf = new Csrf($session);
 
 $router = new Router();
@@ -34,7 +38,7 @@ $webRoutes = $root . '/routes/web.php';
 if (is_file($webRoutes)) {
     $registerRoutes = require $webRoutes;
     if (is_callable($registerRoutes)) {
-        $registerRoutes($router, $loginController, $auth, $csrf);
+        $registerRoutes($router, $loginController, $auth, $csrf, $authorize);
     }
 }
 
