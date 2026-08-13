@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Ispluka\Controllers\Auth\LoginController;
+use Ispluka\Controllers\CustomerController;
 use Ispluka\Core\Auth\AuthManager;
 use Ispluka\Core\Http\Response;
 use Ispluka\Core\Routing\Router;
@@ -16,6 +17,8 @@ return static function (
     AuthManager $auth,
     Csrf $csrf,
     Authorize $authorize,
+    CustomerController $customers,
+    callable $csrfMiddleware,
 ): void {
     $requireAuth = new RequireAuthentication($auth);
 
@@ -29,6 +32,17 @@ return static function (
     $router->get('/admin', static function (): Response {
         return Response::text('Admin area');
     }, [$requireAuth, $authorize->permission('users.view')]);
+
+    $customerView = $authorize->permission('customers.view');
+    $customerCreate = $authorize->permission('customers.create');
+    $customerUpdate = $authorize->permission('customers.update');
+    $customerDelete = $authorize->permission('customers.delete');
+
+    $router->get('/api/customers', [$customers, 'index'], [$requireAuth, $customerView]);
+    $router->get('/api/customer', [$customers, 'show'], [$requireAuth, $customerView]);
+    $router->post('/api/customers', [$customers, 'store'], [$requireAuth, $customerCreate, $csrfMiddleware]);
+    $router->post('/api/customer/update', [$customers, 'update'], [$requireAuth, $customerUpdate, $csrfMiddleware]);
+    $router->post('/api/customer/delete', [$customers, 'destroy'], [$requireAuth, $customerDelete, $csrfMiddleware]);
 
     $router->get('/login', [$loginController, 'show']);
     $router->post('/login', [$loginController, 'login']);
