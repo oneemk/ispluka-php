@@ -17,13 +17,35 @@ final class RoleManager
         'customer' => 'Customer',
     ];
 
+    private const DEFAULT_ROLE_PERMISSIONS = [
+        'admin' => [
+            'tenant.manage', 'users.view', 'users.create', 'users.update', 'users.delete',
+            'roles.view', 'roles.manage', 'customers.view', 'customers.create', 'customers.update',
+            'customers.delete', 'packages.view', 'packages.manage', 'billing.view', 'billing.manage',
+            'payments.view', 'payments.manage', 'routers.view', 'routers.manage', 'services.view',
+            'services.manage', 'reports.view', 'audit.view', 'settings.manage', 'api.access',
+        ],
+        'reseller' => [
+            'customers.view', 'customers.create', 'customers.update', 'packages.view',
+            'billing.view', 'payments.view', 'services.view', 'services.manage', 'reports.view', 'api.access',
+        ],
+        'employee' => [
+            'customers.view', 'customers.create', 'customers.update', 'packages.view',
+            'billing.view', 'payments.view', 'services.view', 'services.manage', 'reports.view',
+        ],
+        'customer' => [
+            'customers.view', 'packages.view', 'billing.view', 'payments.view', 'services.view',
+        ],
+    ];
+
     public function __construct(private readonly Database $database)
     {
     }
 
     public function provisionTenantRoles(int $tenantId): void
     {
-        $statement = $this->database->pdo()->prepare(
+        $pdo = $this->database->pdo();
+        $statement = $pdo->prepare(
             'INSERT INTO roles (tenant_id, name, code, description)
              VALUES (:tenant_id, :name, :code, :description)
              ON CONFLICT (tenant_id, code) DO NOTHING'
@@ -36,6 +58,34 @@ final class RoleManager
                 'code' => $code,
                 'description' => $name . ' tenant role',
             ]);
+        }
+
+        $roleLookup = $pdo->prepare('SELECT id FROM roles WHERE tenant_id = :tenant_id AND code = :code LIMIT 1');
+        $permissionLookup = $pdo->prepare('SELECT id FROM permissions WHERE code = :code LIMIT 1');
+        $assignment = $pdo->prepare(
+            'INSERT INTO role_permissions (role_id, permission_id)
+             VALUES (:role_id, :permission_id)
+             ON CONFLICT DO NOTHING'
+        );
+
+        foreach (self::DEFAULT_ROLE_PERMISSIONS as $roleCode => $permissions) {
+            $roleLookup->execute(['tenant_id' => $tenantId, 'code' => $roleCode]);
+            $roleId = $roleLookup->fetchColumn();
+            if ($roleId === false) {
+                throw new RuntimeException('Tenant role provisioning failed.');
+            }
+
+            foreach ($permissions as $permissionCode) {
+                $permissionLookup->execute(['code' => $permissionCode]);
+                $permissionId = $permissionLookup->fetchColumn();
+                if ($permissionId === false) {
+                    throw new RuntimeException('Permission not found: ' . $permissionCode);
+                }
+                $assignment->execute([
+                    'role_id' => (int) $roleId,
+                    'permission_id' => (int) $permissionId,
+                ]);
+            }
         }
     }
 
