@@ -19,15 +19,17 @@
 9. MikroTik PPPoE/Hotspot automation
 10. Cron/billing/network automation
 11. Reports + audit log + REST API foundation
+12. REST API routing/controllers/authentication foundation + OpenAPI documentation
 
 ## Current state
 - Billing automation and overdue processing exist.
 - Network jobs support provision/suspend/restore with retry/backoff.
 - Audit log schema/service and reporting services exist.
-- API response abstraction already exists and should be reused, not duplicated.
+- REST API supports route parameters and session/role authentication middleware.
+- OpenAPI contract is stored at docs/openapi.yaml.
+- Existing ApiResponse abstraction is reused.
 
 ## Next work order
-12. Complete REST API routing/controllers/authentication and OpenAPI docs
 13. Complete payment gateway adapters/webhooks/reconciliation/idempotency
 14. Auto suspend/restore policy integration with overdue invoices
 15. Admin dashboard + mobile-first UI
@@ -50,10 +52,10 @@
 - Deployment target remains Namecheap shared hosting/cPanel; never move to VPS unless explicitly requested.
 
 ## Last completed
-Step 30: Reports + Audit Log + REST API foundation.
+Step 31: REST API routing/controllers/authentication + OpenAPI documentation.
 
 ## Immediate next
-Step 31: Complete REST API routing/controllers/authentication + OpenAPI documentation.
+Step 32: Complete payment gateway adapters/webhooks/reconciliation/idempotency.
 
 ## Continuation instruction
 If the user returns after a long gap and says "next", "পরবর্তী", or "করুন", read this file first and continue from the Immediate next item. Work in a large coherent production batch and update this file after each completed step.
