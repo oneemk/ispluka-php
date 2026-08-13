@@ -7,8 +7,10 @@ final class RouterOsPppEnforcer
 {
  /** @param callable(string,array):mixed $command */
  public function __construct(private readonly $command){}
- public function enable(string $username):void{$this->run('/ppp/secret/enable',['.id'=>$username]);}
- public function disable(string $username):void{$this->run('/ppp/secret/disable',['.id'=>$username]);}
- public function setProfile(string $username,string $profile):void{$this->run('/ppp/secret/set',['.id'=>$username,'profile'=>$profile]);}
+ public function enable(string $id):void{$this->run('/ppp/secret/set',['.id'=>$id,'disabled'=>'no']);}
+ public function disable(string $id):void{$this->run('/ppp/secret/set',['.id'=>$id,'disabled'=>'yes']);}
+ public function setProfile(string $id,string $profile):void{$this->run('/ppp/secret/set',['.id'=>$id,'profile'=>$profile]);}
+ /** Resolve the RouterOS internal .id from an exact PPP secret username. */
+ public function resolveId(string $username):string{$rows=($this->command)('/ppp/secret/print',['?name'=>$username,'=.proplist'=>'.id,name']);if(!is_array($rows)||count($rows)!==1||empty($rows[0]['.id']))throw new RuntimeException('MikroTik PPPoE secret could not be uniquely resolved.');return(string)$rows[0]['.id'];}
  private function run(string $path,array $args):void{try{$result=($this->command)($path,$args);if($result===false)throw new RuntimeException('RouterOS command failed.');}catch(\Throwable $e){throw new RuntimeException('MikroTik PPPoE enforcement failed: '.$e->getMessage(),0,$e);}}
 }
