@@ -114,7 +114,7 @@ Planned security requirements include:
 
 1. Architecture and specification freeze
 2. Core application bootstrap and custom MVC foundation
-3. Database migration and seeding engine
+3. Database architecture and migration/seeding engine
 4. Authentication and session security
 5. RBAC and multi-tenancy
 6. Master Admin
@@ -145,6 +145,12 @@ Copy `.env.example` to `.env` in local or production environments and provide en
 
 The production deployment target is Namecheap cPanel Shared Hosting with Apache, PHP 8.3+, PostgreSQL, SSL, and cPanel Cron. The application must remain compatible with these constraints throughout development.
 
+## Database foundation
+
+The database layer uses native PHP PDO with the PostgreSQL driver. Connections use exception mode, associative fetches, native prepared statements, and configurable PostgreSQL SSL mode. Transactions are explicit and rollback automatically when a callback fails.
+
+Migrations implement an explicit `up()`/`down()` contract and are tracked in the `schema_migrations` table. Seeders use an explicit runner contract. No application business tables have been created yet; those belong to the schema design phase.
+
 ## Status
 
-Repository baseline only. No application features are implemented yet.
+Core application bootstrap and the PostgreSQL database foundation are implemented. Business features and the production database schema are not implemented yet.
