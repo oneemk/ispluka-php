@@ -23,6 +23,7 @@
 13. Payment gateway adapter foundation
 14. Overdue billing policy + automatic suspend/restore lifecycle
 15. Admin dashboard summary service + mobile-first UI foundation
+16. Reseller portal data model + dashboard/ledger foundation
 
 ## UI terminology
 - Database/API may use `grace_days`.
@@ -36,14 +37,16 @@
 - Successful payment settlement attempts customer service restoration when no overdue invoice remains.
 - Network worker executes provision/suspend/restore with retry/backoff.
 - Dashboard summary exposes customers, active/suspended services, overdue invoices, outstanding amount and current-month collection.
-- Mobile-first dashboard CSS foundation is present.
+- Reseller profiles can own customers, have commission/credit settings, and maintain a transaction-safe ledger.
+- Reseller dashboard exposes customers, active/suspended services, outstanding amount and balance.
+- Mobile reseller CSS foundation is present.
 
 ## Next work order
-16. Reseller portal
-17. Customer portal UI
-18. BTRC/reporting/inventory/POS modules
-19. cPanel cron/deployment/observability
-20. Full integration/security/performance tests and release checklist
+17. Complete reseller portal UI/API/RBAC and commission settlement integration
+18. Customer portal UI
+19. BTRC/reporting/inventory/POS modules
+20. cPanel cron/deployment/observability
+21. Full integration/security/performance tests and release checklist
 
 ## Important rules
 - Strict tenant isolation on every tenant-owned query.
@@ -58,10 +61,10 @@
 - Deployment target remains Namecheap shared hosting/cPanel; never move to VPS unless explicitly requested.
 
 ## Last completed
-Step 34: Admin dashboard + mobile-first UI foundation, with Extra Time UI terminology.
+Step 35: Reseller portal data model + dashboard/ledger foundation.
 
 ## Immediate next
-Step 35: Reseller portal.
+Step 36: Complete reseller portal UI/API/RBAC and commission settlement integration.
 
 ## Continuation instruction
 If the user returns after a long gap and says "next", "পরবর্তী", or "করুন", read this file first and continue from the Immediate next item. Work in a large coherent production batch and update this file after each completed step.
