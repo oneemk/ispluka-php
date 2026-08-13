@@ -32,12 +32,14 @@ final class CustomerServiceController
     public function store(Request $request): Response
     {
         try {
+            $secret = $request->input('secret');
+            $encryptedSecret = is_string($secret) && $secret !== '' ? base64_encode($secret) : null;
             $id = $this->services->create($this->tenantId(), (int) $request->input('customer_id', 0), [
                 'package_id' => $request->input('package_id'),
                 'router_id' => $request->input('router_id'),
                 'service_type' => $request->input('service_type'),
                 'username' => $request->input('username'),
-                'secret_hash' => $request->input('secret_hash'),
+                'encrypted_secret' => $encryptedSecret,
                 'mac_address' => $request->input('mac_address'),
                 'ip_address' => $request->input('ip_address'),
                 'start_date' => $request->input('start_date'),
