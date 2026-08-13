@@ -16,7 +16,7 @@
 6. Packages and MikroTik routers
 7. Billing/invoice engine
 8. Payment gateway core
-9. MikroTik PPPoE/Hotspot automation
+9. MikroTik PPPoE automation foundation
 10. Cron/billing/network automation
 11. Reports + audit log + REST API foundation
 12. REST API routing/controllers/authentication foundation + OpenAPI documentation
@@ -27,11 +27,24 @@
 17. Reseller authorization + payment collection + commission settlement + responsive UI foundation
 18. Customer portal service + authorization + responsive UI foundation
 19. BTRC reporting + advanced reports + inventory + POS foundation
+20. Hotspot architecture requirements and boundaries locked
 
 ## UI terminology
 - Database/API may use `grace_days`.
 - User-facing label must be **Extra Time**.
 - Never display “Grace Period” in the UI.
+- Hotspot is a separate UI and must not use third-party product names as branding.
+
+## Hotspot requirements locked
+- Hotspot is independent from PPPoE packages, customer services, invoices and billing lifecycle.
+- Same MikroTik router may serve PPPoE and Hotspot, but business logic remains isolated.
+- Hotspot validity supports arbitrary duration expressions such as `11d`, `15d`, `20h`, `5h`, `90m`, `2d 12h` and `1d 6h 30m`.
+- First-login activation is the primary validity mode: unused users have no running validity; first successful activation stores `activated_at` and calculates absolute `expires_at`.
+- Offline time consumes validity; repeated login events cannot extend the original expiry.
+- Hotspot Panel checks MikroTik clock against application/server time on entry.
+- Clock warning is non-blocking and provides Fix Time / Ignore & Continue.
+- Ignore must never disable normal Hotspot operations.
+- Router time is never silently changed; correction requires explicit administrator action.
 
 ## Current state
 - Billing automation and overdue processing exist.
@@ -50,9 +63,11 @@
 - Mobile-first backoffice module CSS foundation is present.
 
 ## Next work order
-20. cPanel cron/deployment/observability
-21. Full integration/security/performance tests and release checklist
-22. Production hardening, documentation and release candidate
+21. Hotspot Panel data model + duration parser + first-login expiry engine + router-time pre-flight service
+22. Hotspot operational UI/API: routers, profiles, users, active sessions, bindings, hosts, walled garden, address lists, traffic, logs
+23. cPanel cron/deployment/observability
+24. Full integration/security/performance tests and release checklist
+25. Production hardening, documentation and release candidate
 
 ## Important rules
 - Strict tenant isolation on every tenant-owned query.
@@ -67,10 +82,10 @@
 - Deployment target remains Namecheap shared hosting/cPanel; never move to VPS unless explicitly requested.
 
 ## Last completed
-Step 38: BTRC reporting + advanced reports + inventory + POS foundation.
+Step 20: Hotspot architecture requirements, flexible validity, first-login activation and non-blocking MikroTik time-warning requirements documented.
 
 ## Immediate next
-Step 39: cPanel cron/deployment/observability.
+Step 21: Hotspot Panel data model + duration parser + first-login expiry engine + router-time pre-flight service.
 
 ## Continuation instruction
 If the user returns after a long gap and says "next", "পরবর্তী", or "করুন", read this file first and continue from the Immediate next item. Work in a large coherent production batch and update this file after each completed step.
