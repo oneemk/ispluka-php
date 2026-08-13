@@ -44,12 +44,12 @@ final class RoleManager
         $pdo = $this->database->pdo();
         $statement = $pdo->prepare(
             'SELECT id, tenant_id FROM roles
-             WHERE code = :code
-               AND (tenant_id IS NULL OR tenant_id = :tenant_id)
-             ORDER BY CASE WHEN tenant_id = :tenant_id THEN 0 ELSE 1 END
+             WHERE code = ?
+               AND (tenant_id IS NULL OR tenant_id = ?)
+             ORDER BY CASE WHEN tenant_id = ? THEN 0 ELSE 1 END
              LIMIT 1'
         );
-        $statement->execute(['code' => $roleCode, 'tenant_id' => $tenantId]);
+        $statement->execute([$roleCode, $tenantId, $tenantId]);
         $role = $statement->fetch(PDO::FETCH_ASSOC);
 
         if (!is_array($role)) {
