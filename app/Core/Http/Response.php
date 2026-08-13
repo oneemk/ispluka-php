@@ -18,13 +18,18 @@ final class Response
         return new self($content, $status, ['Content-Type' => 'text/html; charset=UTF-8', ...$headers]);
     }
 
-    public static function json(array $data, int $status = 200): self
+    public static function json(array $data, int $status = 200, array $headers = []): self
     {
         return new self(
             json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             $status,
-            ['Content-Type' => 'application/json; charset=UTF-8'],
+            ['Content-Type' => 'application/json; charset=UTF-8', ...$headers],
         );
+    }
+
+    public static function redirect(string $location, int $status = 302): self
+    {
+        return new self('', $status, ['Location' => $location]);
     }
 
     public function send(): void
