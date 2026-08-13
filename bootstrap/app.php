@@ -16,6 +16,7 @@ use Ispluka\Core\Http\Request;
 use Ispluka\Core\Http\Response;
 use Ispluka\Core\Routing\Router;
 use Ispluka\Core\Security\Csrf;
+use Ispluka\Core\Security\Encryption;
 use Ispluka\Middleware\Authorize;
 use Ispluka\Repositories\CustomerRepository;
 use Ispluka\Repositories\CustomerServiceRepository;
@@ -37,12 +38,13 @@ $auth = new AuthManager($database, $session);
 $authorization = new Authorization($database, $auth);
 $authorize = new Authorize($authorization);
 $csrf = new Csrf($session);
+$encryption = new Encryption((string) ($_ENV['APP_KEY'] ?? ''));
 
 $router = new Router();
 $exceptionHandler = new Handler();
 $loginController = new LoginController($auth, $session, $csrf);
 $customerController = new CustomerController(new CustomerService(new CustomerRepository($database)), $auth);
-$customerServiceController = new CustomerServiceController(new CustomerAccessService(new CustomerServiceRepository($database)), $auth);
+$customerServiceController = new CustomerServiceController(new CustomerAccessService(new CustomerServiceRepository($database)), $auth, $encryption);
 
 $csrfMiddleware = static function (Request $request, callable $next) use ($csrf): Response {
     if (!$csrf->validate($request->input('_csrf'))) {
