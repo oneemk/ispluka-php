@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Ispluka\Core\Security;
 
 use Ispluka\Core\Auth\Session;
-use RuntimeException;
 
 final class Csrf
 {
@@ -27,10 +26,12 @@ final class Csrf
         return $token;
     }
 
-    public function validate(?string $token): void
+    public function validate(?string $token): bool
     {
-        if (!is_string($token) || !hash_equals($this->token(), $token)) {
-            throw new RuntimeException('Invalid CSRF token.');
+        if (!is_string($token) || $token === '') {
+            return false;
         }
+
+        return hash_equals($this->token(), $token);
     }
 }
