@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Ispluka\Controllers\Auth\LoginController;
 use Ispluka\Controllers\CustomerController;
 use Ispluka\Controllers\CustomerServiceController;
+use Ispluka\Controllers\MikrotikEnforcementAuditController;
 use Ispluka\Core\Application;
 use Ispluka\Core\Auth\AuthManager;
 use Ispluka\Core\Auth\Authorization;
@@ -45,6 +46,7 @@ $exceptionHandler = new Handler();
 $loginController = new LoginController($auth, $session, $csrf);
 $customerController = new CustomerController(new CustomerService(new CustomerRepository($database)), $auth);
 $customerServiceController = new CustomerServiceController(new CustomerAccessService(new CustomerServiceRepository($database)), $auth, $encryption);
+$mikrotikEnforcementAuditController = new MikrotikEnforcementAuditController($database->pdo());
 
 $csrfMiddleware = static function (Request $request, callable $next) use ($csrf): Response {
     if (!$csrf->validate($request->input('_csrf'))) {
@@ -57,7 +59,7 @@ $webRoutes = $root . '/routes/web.php';
 if (is_file($webRoutes)) {
     $registerRoutes = require $webRoutes;
     if (is_callable($registerRoutes)) {
-        $registerRoutes($router, $loginController, $auth, $csrf, $authorize, $customerController, $customerServiceController, $csrfMiddleware);
+        $registerRoutes($router, $loginController, $auth, $csrf, $authorize, $customerController, $customerServiceController, $csrfMiddleware, $mikrotikEnforcementAuditController);
     }
 }
 
