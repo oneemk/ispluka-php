@@ -26,6 +26,7 @@
 16. Reseller portal data model + dashboard/ledger foundation
 17. Reseller authorization + payment collection + commission settlement + responsive UI foundation
 18. Customer portal service + authorization + responsive UI foundation
+19. BTRC reporting + advanced reports + inventory + POS foundation
 
 ## UI terminology
 - Database/API may use `grace_days`.
@@ -43,12 +44,15 @@
 - Reseller authorization prevents cross-reseller customer access.
 - Reseller payment collection validates ownership, settles invoice payment, and calculates commission into the reseller ledger.
 - Customer portal exposes dashboard, services, invoices and payment history with tenant/customer authorization.
-- Mobile-first customer portal CSS foundation is present.
+- Inventory supports tenant stock, movements, low-stock detection and transactional stock deduction.
+- POS supports sales with inventory deduction and optional customer/invoice linkage.
+- BTRC report generation stores period-based JSON payloads; advanced reports cover revenue, outstanding invoices and service status.
+- Mobile-first backoffice module CSS foundation is present.
 
 ## Next work order
-19. BTRC/reporting/inventory/POS modules
 20. cPanel cron/deployment/observability
 21. Full integration/security/performance tests and release checklist
+22. Production hardening, documentation and release candidate
 
 ## Important rules
 - Strict tenant isolation on every tenant-owned query.
@@ -63,10 +67,10 @@
 - Deployment target remains Namecheap shared hosting/cPanel; never move to VPS unless explicitly requested.
 
 ## Last completed
-Step 37: Customer portal service, authorization and responsive UI foundation.
+Step 38: BTRC reporting + advanced reports + inventory + POS foundation.
 
 ## Immediate next
-Step 38: BTRC reporting + advanced reports + inventory + POS foundation.
+Step 39: cPanel cron/deployment/observability.
 
 ## Continuation instruction
 If the user returns after a long gap and says "next", "পরবর্তী", or "করুন", read this file first and continue from the Immediate next item. Work in a large coherent production batch and update this file after each completed step.
