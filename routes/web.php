@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Ispluka\Controllers\Auth\LoginController;
 use Ispluka\Controllers\CustomerController;
+use Ispluka\Controllers\CustomerServiceController;
 use Ispluka\Core\Auth\AuthManager;
 use Ispluka\Core\Http\Response;
 use Ispluka\Core\Routing\Router;
@@ -18,6 +19,7 @@ return static function (
     Csrf $csrf,
     Authorize $authorize,
     CustomerController $customers,
+    CustomerServiceController $customerServices,
     callable $csrfMiddleware,
 ): void {
     $requireAuth = new RequireAuthentication($auth);
@@ -37,12 +39,18 @@ return static function (
     $customerCreate = $authorize->permission('customers.create');
     $customerUpdate = $authorize->permission('customers.update');
     $customerDelete = $authorize->permission('customers.delete');
+    $serviceView = $authorize->permission('services.view');
+    $serviceManage = $authorize->permission('services.manage');
 
     $router->get('/api/customers', [$customers, 'index'], [$requireAuth, $customerView]);
     $router->get('/api/customer', [$customers, 'show'], [$requireAuth, $customerView]);
     $router->post('/api/customers', [$customers, 'store'], [$requireAuth, $customerCreate, $csrfMiddleware]);
     $router->post('/api/customer/update', [$customers, 'update'], [$requireAuth, $customerUpdate, $csrfMiddleware]);
     $router->post('/api/customer/delete', [$customers, 'destroy'], [$requireAuth, $customerDelete, $csrfMiddleware]);
+
+    $router->get('/api/customer-services', [$customerServices, 'index'], [$requireAuth, $serviceView]);
+    $router->post('/api/customer-services', [$customerServices, 'store'], [$requireAuth, $serviceManage, $csrfMiddleware]);
+    $router->post('/api/customer-service/status', [$customerServices, 'status'], [$requireAuth, $serviceManage, $csrfMiddleware]);
 
     $router->get('/login', [$loginController, 'show']);
     $router->post('/login', [$loginController, 'login']);
