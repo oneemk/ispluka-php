@@ -28,6 +28,8 @@
 18. Customer portal service + authorization + responsive UI foundation
 19. BTRC reporting + advanced reports + inventory + POS foundation
 20. Hotspot architecture requirements and boundaries locked
+21. Hotspot core data model + flexible validity + first-login expiry engine + router-time check
+22. Hotspot operational data model + operation guard + API contract
 
 ## UI terminology
 - Database/API may use `grace_days`.
@@ -60,14 +62,15 @@
 - Inventory supports tenant stock, movements, low-stock detection and transactional stock deduction.
 - POS supports sales with inventory deduction and optional customer/invoice linkage.
 - BTRC report generation stores period-based JSON payloads; advanced reports cover revenue, outstanding invoices and service status.
-- Mobile-first backoffice module CSS foundation is present.
+- Hotspot schema now separates profiles/users from PPPoE billing and adds sessions, IP bindings, hosts, walled garden, address lists and operation logs.
+- Hotspot API contract covers routers, profiles, users, sessions, bindings, hosts, walled garden, address lists, traffic and logs.
 
 ## Next work order
-21. Hotspot Panel data model + duration parser + first-login expiry engine + router-time pre-flight service
-22. Hotspot operational UI/API: routers, profiles, users, active sessions, bindings, hosts, walled garden, address lists, traffic, logs
-23. cPanel cron/deployment/observability
-24. Full integration/security/performance tests and release checklist
-25. Production hardening, documentation and release candidate
+23. Wire Hotspot API controllers/services to existing MVC routing and MikroTik adapter; implement secure CRUD and live operational actions
+24. Build separate mobile-first Hotspot Panel UI
+25. cPanel cron/deployment/observability
+26. Full integration/security/performance tests and release checklist
+27. Production hardening, documentation and release candidate
 
 ## Important rules
 - Strict tenant isolation on every tenant-owned query.
@@ -82,10 +85,10 @@
 - Deployment target remains Namecheap shared hosting/cPanel; never move to VPS unless explicitly requested.
 
 ## Last completed
-Step 20: Hotspot architecture requirements, flexible validity, first-login activation and non-blocking MikroTik time-warning requirements documented.
+Step 22: Hotspot operational data model, tenant operation guard and API contract.
 
 ## Immediate next
-Step 21: Hotspot Panel data model + duration parser + first-login expiry engine + router-time pre-flight service.
+Step 23: Wire Hotspot API controllers/services to the existing MVC routing and MikroTik adapter; implement secure CRUD and live operational actions.
 
 ## Continuation instruction
 If the user returns after a long gap and says "next", "পরবর্তী", or "করুন", read this file first and continue from the Immediate next item. Work in a large coherent production batch and update this file after each completed step.
