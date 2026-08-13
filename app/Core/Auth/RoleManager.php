@@ -18,24 +18,10 @@ final class RoleManager
     ];
 
     private const DEFAULT_ROLE_PERMISSIONS = [
-        'admin' => [
-            'tenant.manage', 'users.view', 'users.create', 'users.update', 'users.delete',
-            'roles.view', 'roles.manage', 'customers.view', 'customers.create', 'customers.update',
-            'customers.delete', 'packages.view', 'packages.manage', 'billing.view', 'billing.manage',
-            'payments.view', 'payments.manage', 'routers.view', 'routers.manage', 'services.view',
-            'services.manage', 'reports.view', 'audit.view', 'settings.manage', 'api.access',
-        ],
-        'reseller' => [
-            'customers.view', 'customers.create', 'customers.update', 'packages.view',
-            'billing.view', 'payments.view', 'services.view', 'services.manage', 'reports.view', 'api.access',
-        ],
-        'employee' => [
-            'customers.view', 'customers.create', 'customers.update', 'packages.view',
-            'billing.view', 'payments.view', 'services.view', 'services.manage', 'reports.view',
-        ],
-        'customer' => [
-            'customers.view', 'packages.view', 'billing.view', 'payments.view', 'services.view',
-        ],
+        'admin' => ['tenant.manage', 'users.view', 'users.create', 'users.update', 'users.delete', 'roles.view', 'roles.manage', 'customers.view', 'customers.create', 'customers.update', 'customers.delete', 'packages.view', 'packages.manage', 'billing.view', 'billing.manage', 'payments.view', 'payments.manage', 'routers.view', 'routers.manage', 'services.view', 'services.manage', 'reports.view', 'audit.view', 'settings.manage', 'api.access'],
+        'reseller' => ['customers.view', 'customers.create', 'customers.update', 'packages.view', 'billing.view', 'payments.view', 'services.view', 'services.manage', 'reports.view', 'api.access'],
+        'employee' => ['customers.view', 'customers.create', 'customers.update', 'packages.view', 'billing.view', 'payments.view', 'services.view', 'services.manage', 'reports.view'],
+        'customer' => ['customers.view', 'packages.view', 'billing.view', 'payments.view', 'services.view'],
     ];
 
     public function __construct(private readonly Database $database)
@@ -81,10 +67,7 @@ final class RoleManager
                 if ($permissionId === false) {
                     throw new RuntimeException('Permission not found: ' . $permissionCode);
                 }
-                $assignment->execute([
-                    'role_id' => (int) $roleId,
-                    'permission_id' => (int) $permissionId,
-                ]);
+                $assignment->execute(['role_id' => (int) $roleId, 'permission_id' => (int) $permissionId]);
             }
         }
     }
@@ -92,6 +75,22 @@ final class RoleManager
     public function assign(int $userId, string $roleCode, ?int $tenantId): void
     {
         $pdo = $this->database->pdo();
+        $userStatement = $pdo->prepare('SELECT tenant_id FROM users WHERE id = :user_id AND deleted_at IS NULL LIMIT 1');
+        $userStatement->execute(['user_id' => $userId]);
+        $userTenantId = $userStatement->fetchColumn();
+
+        if ($userTenantId === false || ($userTenantId !== null && (int) $userTenantId !== $tenantId)) {
+            throw new RuntimeException('User and tenant scope do not match.');
+        }
+
+        if ($roleCode === 'master_admin' && $tenantId !== null) {
+            throw new RuntimeException('Master Admin must not belong to a tenant.');
+        }
+
+        if ($roleCode !== 'master_admin' && $tenantId === null) {
+            throw new RuntimeException('Tenant roles require a tenant scope.');
+        }
+
         $statement = $pdo->prepare(
             'SELECT id, tenant_id FROM roles
              WHERE code = ?
@@ -114,9 +113,6 @@ final class RoleManager
             'INSERT INTO user_roles (user_id, role_id)
              VALUES (:user_id, :role_id)
              ON CONFLICT DO NOTHING'
-        )->execute([
-            'user_id' => $userId,
-            'role_id' => (int) $role['id'],
-        ]);
+        )->execute(['user_id' => $userId, 'role_id' => (int) $role['id']]);
     }
 }
