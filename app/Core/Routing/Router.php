@@ -10,26 +10,27 @@ use RuntimeException;
 
 final class Router
 {
-    /** @var array<int, array{method:string,path:string,handler:callable}> */
+    /** @var array<int, array{method:string,path:string,handler:callable,middleware:list<callable>}> */
     private array $routes = [];
 
-    public function get(string $path, callable $handler): void
+    public function get(string $path, callable $handler, array $middleware = []): void
     {
-        $this->add('GET', $path, $handler);
+        $this->add('GET', $path, $handler, $middleware);
     }
 
-    public function post(string $path, callable $handler): void
+    public function post(string $path, callable $handler, array $middleware = []): void
     {
-        $this->add('POST', $path, $handler);
+        $this->add('POST', $path, $handler, $middleware);
     }
 
-    public function add(string $method, string $path, callable $handler): void
+    public function add(string $method, string $path, callable $handler, array $middleware = []): void
     {
         $normalized = '/' . trim($path, '/');
         $this->routes[] = [
             'method' => strtoupper($method),
             'path' => $normalized === '//' ? '/' : $normalized,
             'handler' => $handler,
+            'middleware' => array_values($middleware),
         ];
     }
 
@@ -40,10 +41,20 @@ final class Router
                 continue;
             }
 
-            $result = ($route['handler'])($request);
-            return $result instanceof Response ? $result : Response::text((string) $result);
+            $pipeline = array_reduce(
+                array_reverse($route['middleware']),
+                static fn (callable $next, callable $middleware): callable => static fn (Request $request): Response => $middleware($request, $next),
+                static fn (Request $request): Response => self::toResponse(($route['handler'])($request)),
+            );
+
+            return $pipeline($request);
         }
 
         throw new RuntimeException('Route not found', 404);
+    }
+
+    private static function toResponse(mixed $result): Response
+    {
+        return $result instanceof Response ? $result : Response::text((string) $result);
     }
 }
