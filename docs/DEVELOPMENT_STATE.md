@@ -8,50 +8,52 @@
 - No VPS migration
 
 ## Completed
-1. Repository baseline and environment protection
-2. MVC/core foundation
-3. Database/migration foundation
-4. Security foundation
-5. Authentication/session/CSRF/RBAC foundation
-6. Customer management core
-7. Packages and MikroTik router models
-8. Billing/invoice engine
-9. Payment gateway architecture
-10. MikroTik PPPoE/Hotspot automation
-11. Cron lock, billing automation, network job worker
+1. Repository baseline/environment protection
+2. MVC/core and database migration foundation
+3. Security foundation
+4. Authentication/session/CSRF/RBAC
+5. Customer/service management
+6. Packages and MikroTik routers
+7. Billing/invoice engine
+8. Payment gateway core
+9. MikroTik PPPoE/Hotspot automation
+10. Cron/billing/network automation
+11. Reports + audit log + REST API foundation
 
 ## Current state
-- Daily billing automation can generate invoices for active services whose next_billing_at is due.
-- Overdue invoices are processed by the daily billing runner.
-- Network jobs support provision, suspend and restore with retry/backoff.
-- PostgreSQL advisory locking prevents duplicate cron execution.
+- Billing automation and overdue processing exist.
+- Network jobs support provision/suspend/restore with retry/backoff.
+- Audit log schema/service and reporting services exist.
+- API response abstraction already exists and should be reused, not duplicated.
 
 ## Next work order
-12. Reports + audit log + REST API foundation
-13. Complete payment gateway adapters/webhooks and reconciliation
-14. Auto suspend/restore policy integration with overdue billing
-15. Admin dashboard and mobile-first UI
+12. Complete REST API routing/controllers/authentication and OpenAPI docs
+13. Complete payment gateway adapters/webhooks/reconciliation/idempotency
+14. Auto suspend/restore policy integration with overdue invoices
+15. Admin dashboard + mobile-first UI
 16. Reseller portal
 17. Customer portal UI
 18. BTRC/reporting/inventory/POS modules
-19. cPanel cron/deployment scripts and production observability
-20. Full integration tests, security audit, performance review and release checklist
+19. cPanel cron/deployment/observability
+20. Full integration/security/performance tests and release checklist
 
-## Working rule
-When the user says "next", "পরবর্তী", "করুন", or similar, inspect this file and the repository before choosing work. Prefer a large coherent production batch rather than tiny changes. Do not move deployment to VPS. Target cPanel/shared hosting.
-
-## Important architecture rules
+## Important rules
 - Strict tenant isolation on every tenant-owned query.
-- Never store plaintext passwords/API secrets; use SecretBox/encrypted fields where secrets must be recoverable.
-- Never trust payment callbacks without gateway verification and idempotency.
-- Use PDO prepared statements only.
-- Keep cron jobs idempotent and protected by locks.
-- Network operations must be queued/retried rather than blocking web requests where practical.
-- Keep public web root limited to public/.
-- Do not commit real .env secrets.
+- Never store plaintext recoverable secrets; use SecretBox for router/API credentials.
+- PDO prepared statements only.
+- Payment callbacks require verification and idempotency.
+- Cron jobs must be idempotent and locked.
+- Network work should be queued/retried.
+- Public web root is public/ only.
+- Never commit real .env secrets.
+- Reuse existing classes before creating duplicates.
+- Deployment target remains Namecheap shared hosting/cPanel; never move to VPS unless explicitly requested.
 
-## Last completed batch
-Step 29: automation and cron engine.
-
-## Immediate next step
+## Last completed
 Step 30: Reports + Audit Log + REST API foundation.
+
+## Immediate next
+Step 31: Complete REST API routing/controllers/authentication + OpenAPI documentation.
+
+## Continuation instruction
+If the user returns after a long gap and says "next", "পরবর্তী", or "করুন", read this file first and continue from the Immediate next item. Work in a large coherent production batch and update this file after each completed step.
