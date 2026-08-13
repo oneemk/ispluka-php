@@ -1,0 +1,44 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Composer
+/vendor/
+
+# Runtime storage
+/storage/logs/*
+/storage/cache/*
+/storage/sessions/*
+/storage/backups/*
+/storage/exports/*
+
+# Public uploads
+/public/uploads/*
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local PHP artifacts
+*.log
+*.tmp
+*.cache
+
+# Test coverage
+.phpunit.result.cache
+coverage/
+
+# Keep required runtime directories in Git
+!.gitkeep
+!/storage/logs/.gitkeep
+!/storage/cache/.gitkeep
+!/storage/sessions/.gitkeep
+!/storage/backups/.gitkeep
+!/storage/exports/.gitkeep
+!/public/uploads/.gitkeep
