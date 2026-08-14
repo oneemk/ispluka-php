@@ -27,6 +27,7 @@ return static function (Router $router, LoginController $loginController, AuthMa
     $router->get('/networking/mikrotik/enforcement-audit',[$mikrotikAudit,'page'],[$requireAuth,$auditView]);
     $router->get('/api/networking/mikrotik/audit',[$mikrotikAudit,'reconciliation'],[$requireAuth,$auditView]);
     $router->get('/api/networking/mikrotik/pppoe/live',[$mikrotikAudit,'live'],[$requireAuth,$auditView]);
+    $router->get('/api/networking/mikrotik/pppoe/usage',[$mikrotikAudit,'usage'],[$requireAuth,$auditView]);
     $router->get('/api/mikrotik/pppoe/enforcement-audit',[$mikrotikAudit,'audit'],[$requireAuth,$auditView]);
     $router->get('/api/mikrotik/pppoe/enforcement-audit/summary',[$mikrotikAudit,'summary'],[$requireAuth,$auditView]);
     $router->get('/login',[$loginController,'show']);$router->post('/login',[$loginController,'login']);$router->post('/logout',[$loginController,'logout'],[$requireAuth]);
