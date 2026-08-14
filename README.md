@@ -35,26 +35,22 @@ This project is designed specifically for shared hosting. VPS, Docker, Node.js, 
 - Employee
 - Customer
 
-## Planned modules
+## Current implementation progress
 
-- Tenant and ISP management
-- Customer management
-- Package management
-- Billing and invoice
-- Payments
-- bKash/Nagad/Card gateway architecture
-- MikroTik integration
-- PPPoE
-- Hotspot
-- Router management
-- Automatic suspension and restoration
-- Reports
-- Notifications
-- Audit and security logs
-- REST API
-- Settings
+The `feat/mikrotik-reconciliation` branch contains the current MikroTik/PPPoE enforcement work:
 
-These modules are planned and are not implemented in this baseline.
+- PPPoE activity snapshots and bounded live-metrics API
+- Six-month usage reporting
+- MikroTik reconciliation/audit UI
+- Verified enforcement audit with `success`, `failed`, and `mismatch`
+- Manual Enable / Disable / Suspend API
+- `suspend` PPP profile policy with Temporary Disable fallback when the profile does not exist
+- Previous-profile tracking for safe restore
+- Native RouterOS API client with no Composer dependency
+- Shared-hosting-safe network job worker
+- Automatic overdue enforcement queue
+
+These features are being hardened before production deployment.
 
 ## Architecture contract
 
@@ -70,72 +66,44 @@ Rules:
 - Database access belongs in Repositories.
 - PDO prepared statements are mandatory.
 - Tenant-owned data must always be tenant-scoped.
-- tenant_id supplied by a client request must never be trusted for authorization.
+- `tenant_id` supplied by a client request must never be trusted for authorization.
 - The authenticated security context determines the active tenant.
 - Secrets must never be hardcoded.
 - Production errors must not expose stack traces, credentials, or sensitive data.
 
-## Multi-tenancy contract
+## MikroTik enforcement policy
 
-Master Admin controls the SaaS platform. Each Admin represents an ISP tenant. Tenant-owned records must be isolated from every other tenant.
+For PPPoE services:
 
-Master Admin
-- Tenant / ISP A
-  - Admin
-  - Employees
-  - Resellers
-  - Customers
-- Tenant / ISP B
-  - Admin
-  - Employees
-  - Resellers
-  - Customers
+1. Automatic overdue enforcement is evaluated by cPanel Cron.
+2. The scheduled enforcement target is **12:05 PM** according to the hosting/account timezone configuration.
+3. If RouterOS PPP profile `suspend` exists, overdue suspension sets `profile=suspend` and keeps the secret enabled.
+4. If `suspend` does not exist, the safe fallback is Temporary Disable (`disabled=yes`).
+5. Every enforcement is read back from MikroTik and recorded as `success`, `failed`, or `mismatch`.
+6. Manual Enable, Disable, and Suspend use the same verified execution engine.
+7. Restore is allowed only when the previous PPP profile is known; unsafe profile guessing is refused.
+8. The service billing state is changed to suspended/active only after the network operation succeeds.
 
-## Security contract
+## cPanel Cron jobs
 
-Planned security requirements include:
+The shared-hosting deployment uses database-backed network jobs. Configure:
 
-- password_hash() and password_verify()
-- secure PHP sessions
-- session regeneration
-- CSRF protection
-- context-aware XSS output escaping
-- PDO prepared statements
-- strict RBAC
-- tenant isolation
-- encryption for sensitive stored credentials where appropriate
-- secure cookie attributes
-- login throttling
-- audit logging
-- production-safe error handling
-- .env-based secret management
+- **12:05 PM:** `scripts/cron/overdue-enforcement.php`
+- **Every 1–5 minutes:** `scripts/cron/network-worker.php 20`
 
-## Development phases
+The worker lock prevents overlapping network workers. The exact absolute PHP path and project path should be generated from the Namecheap cPanel account at deployment time.
 
-1. Architecture and specification freeze
-2. Core application bootstrap and custom MVC foundation
-3. Database architecture and migration/seeding engine
-4. Authentication and session security
-5. RBAC and multi-tenancy
-6. Master Admin
-7. ISP Admin, Employee, and Reseller
-8. Customer management
-9. Packages
-10. Billing and invoices
-11. Payments and gateway adapters
-12. MikroTik, PPPoE, and Hotspot
-13. Cron automation
-14. Reports and notifications
-15. REST API
-16. Audit/security hardening
-17. Testing
-18. cPanel production deployment
+## Database
+
+The database layer uses native PHP PDO with the PostgreSQL driver. Connections use exception mode, associative fetches, native prepared statements, and configurable PostgreSQL SSL mode.
+
+Migrations implement an explicit `up()`/`down()` contract and are tracked in the `schema_migrations` table. The current branch also contains billing, router, customer-service, network-job, PPPoE activity, usage, reconciliation, import, and enforcement-log migrations.
 
 ## Git workflow
 
 The canonical repository is `oneemk/ispluka-php`.
 
-`main` is the production branch. Development will proceed in small, reviewable steps. Secrets and runtime data must never be committed.
+`main` is the production branch. Development proceeds in small, reviewable steps. Secrets and runtime data must never be committed.
 
 ## Configuration
 
@@ -145,12 +113,6 @@ Copy `.env.example` to `.env` in local or production environments and provide en
 
 The production deployment target is Namecheap cPanel Shared Hosting with Apache, PHP 8.3+, PostgreSQL, SSL, and cPanel Cron. The application must remain compatible with these constraints throughout development.
 
-## Database foundation
-
-The database layer uses native PHP PDO with the PostgreSQL driver. Connections use exception mode, associative fetches, native prepared statements, and configurable PostgreSQL SSL mode. Transactions are explicit and rollback automatically when a callback fails.
-
-Migrations implement an explicit `up()`/`down()` contract and are tracked in the `schema_migrations` table. Seeders use an explicit runner contract. No application business tables have been created yet; those belong to the schema design phase.
-
 ## Status
 
-Core application bootstrap and the PostgreSQL database foundation are implemented. Business features and the production database schema are not implemented yet.
+Core application bootstrap, database foundation, billing/customer/service foundations, and the current MikroTik/PPPoE enforcement layer are implemented on the development branch. Production deployment and final end-to-end verification remain pending.
