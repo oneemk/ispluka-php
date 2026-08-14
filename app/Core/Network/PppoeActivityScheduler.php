@@ -7,12 +7,16 @@ use Throwable;
 
 final class PppoeActivityScheduler
 {
-    /** @var callable(string):bool */
+    /** @var callable(string,int):bool */
+    private readonly \Closure $lock;
+
     public function __construct(
         private readonly PppoeActivityCollector $collector,
-        private readonly $lock,
+        callable $lock,
         private readonly int $intervalSeconds = 60,
-    ) {}
+    ) {
+        $this->lock = \Closure::fromCallable($lock);
+    }
 
     public function run(int $tenantId, int $routerId): array
     {
