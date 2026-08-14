@@ -3,10 +3,12 @@
 declare(strict_types=1);
 namespace Ispluka\Core\Network;
 
+use Closure;
+
 final class PppoeLiveMetricsService
 {
-    /** @param callable(int,int,string):?array $reader */
-    public function __construct(private readonly $reader) {}
+    /** @param Closure(int,int,string):?array $reader */
+    public function __construct(private readonly Closure $reader) {}
     public function get(int $tenantId,int $routerId,string $username):?array
     {
         $username=trim($username); if($tenantId<1||$routerId<1||$username==='')return null;
