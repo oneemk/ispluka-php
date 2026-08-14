@@ -28,7 +28,10 @@ final class MigrationRunner
     }
 
     /**
-     * @param list<MigrationInterface> $migrations
+     * Migrations are keyed by their filename so PHP and SQL migrations can
+     * safely coexist even when their numeric prefixes overlap.
+     *
+     * @param array<string, object> $migrations
      * @return list<string>
      */
     public function migrate(array $migrations): array
@@ -39,11 +42,11 @@ final class MigrationRunner
         $executed = [];
 
         foreach ($migrations as $name => $migration) {
-            if (!$migration instanceof MigrationInterface) {
+            if (!is_object($migration) || !method_exists($migration, 'up')) {
                 throw new RuntimeException('Invalid migration: ' . (string) $name);
             }
 
-            $migrationName = is_string($name) ? $name : $migration::class;
+            $migrationName = (string) $name;
             if (isset($applied[$migrationName])) {
                 continue;
             }
