@@ -3,12 +3,13 @@
 declare(strict_types=1);
 namespace Ispluka\Core\Network;
 
+use Closure;
 use Throwable;
 
 final class PppoeActivityRunCoordinator
 {
-    /** @param callable(int,int):bool $due */
-    public function __construct(private readonly PppoeActivityScheduler $scheduler, private readonly $due) {}
+    /** @param Closure(int,int):bool $due */
+    public function __construct(private readonly PppoeActivityScheduler $scheduler, private readonly Closure $due) {}
 
     /** @param array<int,array{tenantId:int,routerId:int}> $routers */
     public function run(array $routers): array
