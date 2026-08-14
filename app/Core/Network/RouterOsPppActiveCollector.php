@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 namespace Ispluka\Core\Network;
+use Closure;
 use RuntimeException;
 final class RouterOsPppActiveCollector
 {
- /** @param callable(string):array $query */
- public function __construct(private readonly $query){}
+ /** @param Closure(string):array $query */
+ public function __construct(private readonly Closure $query){}
  public function collect(int $routerId):RouterOsPppActiveSnapshot
  {
   $rows=($this->query)('/ppp/active/print');
