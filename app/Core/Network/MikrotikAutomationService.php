@@ -1,19 +1,157 @@
 <?php
 
 declare(strict_types=1);
+
 namespace Ispluka\Core\Network;
+
 use Ispluka\Core\Database\Database;
 use Ispluka\Core\Security\SecretBox;
 use RuntimeException;
-final class MikrotikAutomationService {
- public const SUSPEND_PROFILE='suspend';
- public function __construct(private readonly Database $db,private readonly SecretBox $secrets,private readonly MikrotikClientInterface $client) {}
- private function service(int $tenantId,int $serviceId):array { $s=$this->db->pdo()->prepare("SELECT cs.*,c.name customer_name,p.name package_name,p.download_kbps,p.upload_kbps,r.host,r.api_port,r.username router_username,r.password_encrypted FROM customer_services cs JOIN customers c ON c.id=cs.customer_id LEFT JOIN packages p ON p.id=cs.package_id LEFT JOIN routers r ON r.id=cs.router_id WHERE cs.tenant_id=:t AND cs.id=:s");$s->execute([':t'=>$tenantId,':s'=>$serviceId]);$r=$s->fetch();if(!$r||!$r['router_id'])throw new RuntimeException('Service or router not found.');return$r; }
- private function router(array $r):array{return['host'=>$r['host'],'api_port'=>$r['api_port'],'username'=>$r['router_username'],'password'=>$this->secrets->decrypt($r['password_encrypted'])];}
- public function provision(int $tenantId,int $serviceId):array { $r=$this->service($tenantId,$serviceId);$router=$this->router($r);try{$this->client->connect($router);$cmd=$r['connection_type']==='hotspot'?'/ip/hotspot/user/add':'/ppp/secret/add';$args=['name'=>$r['username'],'password'=>$r['password_encrypted']??''];$result=$this->client->command($cmd,$args);return['ok'=>true,'result'=>$result];}catch(\Throwable $e){throw new RuntimeException('MikroTik provisioning failed.',0,$e);}finally{try{$this->client->disconnect();}catch(\Throwable $ignore){}}}
- public function execute(int $tenantId,int $serviceId,string $action):array { $action=strtolower(trim($action));if(!in_array($action,['enable','disable','suspend'],true))throw new RuntimeException('Unsupported MikroTik action.');$r=$this->service($tenantId,$serviceId);$router=$this->router($r);$this->client->connect($router);try{if($r['connection_type']==='hotspot'){ $cmd='/ip/hotspot/user/set';$args=['name'=>$r['username']];if($action==='suspend'){$args['profile']=self::SUSPEND_PROFILE;}elseif($action==='disable'){$args['disabled']='yes';}else{$args['disabled']='no';} }else{ $cmd='/ppp/secret/set';$args=['name'=>$r['username']];if($action==='suspend'){$args['profile']=self::SUSPEND_PROFILE;$args['disabled']='no';}elseif($action==='disable'){$args['disabled']='yes';}else{$args['disabled']='no';} }$result=$this->client->command($cmd,$args);return['ok'=>true,'action'=>$action,'requested'=>$args,'result'=>$result];}finally{$this->client->disconnect();}}
- public function suspend(int $tenantId,int $serviceId):void {$this->execute($tenantId,$serviceId,'suspend');}
- public function disable(int $tenantId,int $serviceId):void {$this->execute($tenantId,$serviceId,'disable');}
- public function enable(int $tenantId,int $serviceId):void {$this->execute($tenantId,$serviceId,'enable');}
- public function restore(int $tenantId,int $serviceId):void {$this->enable($tenantId,$serviceId);}
+
+final class MikrotikAutomationService
+{
+    public const SUSPEND_PROFILE = 'suspend';
+
+    public function __construct(
+        private readonly Database $db,
+        private readonly SecretBox $secrets,
+        private readonly MikrotikClientInterface $client
+    ) {}
+
+    private function service(int $tenantId, int $serviceId): array
+    {
+        $s = $this->db->pdo()->prepare("SELECT cs.*, c.name customer_name, p.name package_name,
+                p.download_kbps, p.upload_kbps, r.host, r.api_port,
+                r.username router_username, r.password_encrypted
+            FROM customer_services cs
+            JOIN customers c ON c.id=cs.customer_id
+            LEFT JOIN packages p ON p.id=cs.package_id
+            LEFT JOIN routers r ON r.id=cs.router_id
+            WHERE cs.tenant_id=:t AND cs.id=:s");
+        $s->execute([':t' => $tenantId, ':s' => $serviceId]);
+        $row = $s->fetch();
+        if (!$row || !$row['router_id'] || !$row['username']) throw new RuntimeException('Service, router or username not found.');
+        return $row;
+    }
+
+    private function router(array $row): array
+    {
+        return [
+            'host' => $row['host'],
+            'api_port' => (int)$row['api_port'],
+            'username' => $row['router_username'],
+            'password' => $this->secrets->decrypt($row['password_encrypted']),
+        ];
+    }
+
+    private function first(array $rows): ?array
+    {
+        foreach ($rows as $row) if (isset($row['.id'])) return $row;
+        return null;
+    }
+
+    private function currentPppSecret(string $username): array
+    {
+        $row = $this->first($this->client->command('/ppp/secret/print', ['?name' => $username]));
+        if (!$row) throw new RuntimeException('PPPoE user not found on MikroTik.');
+        return $row;
+    }
+
+    private function suspendProfileExists(): bool
+    {
+        return $this->first($this->client->command('/ppp/profile/print', ['?name' => self::SUSPEND_PROFILE])) !== null;
+    }
+
+    private function previousProfile(int $tenantId, int $routerId, string $username, string $currentProfile): ?string
+    {
+        $q = $this->db->pdo()->prepare("SELECT original_profile FROM pppoe_enforcement_log
+            WHERE tenant_id=:t AND router_id=:r AND username=:u AND action='suspend'
+              AND status='success' AND original_profile IS NOT NULL AND original_profile <> :s
+            ORDER BY id DESC LIMIT 1");
+        $q->execute([':t'=>$tenantId, ':r'=>$routerId, ':u'=>$username, ':s'=>self::SUSPEND_PROFILE]);
+        $profile = $q->fetchColumn();
+        return $profile !== false && $profile !== '' ? (string)$profile : ($currentProfile !== self::SUSPEND_PROFILE ? $currentProfile : null);
+    }
+
+    public function execute(int $tenantId, int $serviceId, string $action, string $reason='manual', ?int $actorId=null): array
+    {
+        $action = strtolower(trim($action));
+        if (!in_array($action, ['enable', 'disable', 'suspend'], true)) throw new RuntimeException('Unsupported MikroTik action.');
+        $row = $this->service($tenantId, $serviceId);
+        if ($row['connection_type'] !== 'pppoe') throw new RuntimeException('Manual MikroTik enforcement currently supports PPPoE services only.');
+        $router = $this->router($row);
+        $routerId = (int)$row['router_id'];
+        $username = (string)$row['username'];
+        $original = null;
+        $target = null;
+        $actual = null;
+        $status = 'failed';
+        $error = null;
+        try {
+            $this->client->connect($router);
+            $current = $this->currentPppSecret($username);
+            $original = (string)($current['profile'] ?? '');
+            $id = (string)$current['.id'];
+
+            if ($action === 'suspend') {
+                if ($this->suspendProfileExists()) {
+                    $target = self::SUSPEND_PROFILE;
+                    $this->client->command('/ppp/secret/set', ['.id'=>$id, 'profile'=>self::SUSPEND_PROFILE, 'disabled'=>'no']);
+                } else {
+                    $target = null;
+                    $this->client->command('/ppp/secret/set', ['.id'=>$id, 'disabled'=>'yes']);
+                }
+            } elseif ($action === 'disable') {
+                $this->client->command('/ppp/secret/set', ['.id'=>$id, 'disabled'=>'yes']);
+            } else {
+                $target = $this->previousProfile($tenantId, $routerId, $username, $original) ?? (string)($row['package_name'] ?? '');
+                $args = ['.id'=>$id, 'disabled'=>'no'];
+                if ($target !== '') $args['profile'] = $target;
+                $this->client->command('/ppp/secret/set', $args);
+            }
+
+            $after = $this->currentPppSecret($username);
+            $actual = ['profile'=>(string)($after['profile'] ?? ''), 'disabled'=>(string)($after['disabled'] ?? 'no')];
+            if ($action === 'suspend') {
+                $status = $target === self::SUSPEND_PROFILE
+                    ? (($actual['profile'] === self::SUSPEND_PROFILE && $actual['disabled'] !== 'yes') ? 'success' : 'mismatch')
+                    : (($actual['disabled'] === 'yes') ? 'success' : 'mismatch');
+            } elseif ($action === 'disable') {
+                $status = $actual['disabled'] === 'yes' ? 'success' : 'mismatch';
+            } else {
+                $status = ($actual['disabled'] !== 'yes' && ($target === null || $actual['profile'] === $target)) ? 'success' : 'mismatch';
+            }
+        } catch (\Throwable $e) {
+            $error = substr($e->getMessage(), 0, 1000);
+            throw $e;
+        } finally {
+            try { $this->client->disconnect(); } catch (\Throwable $ignore) {}
+            $q = $this->db->pdo()->prepare("INSERT INTO pppoe_enforcement_log
+                (tenant_id,router_id,username,action,original_profile,target_profile,reason,status,error_message,actor_id)
+                VALUES (:t,:r,:u,:a,:op,:tp,:reason,:status,:err,:actor)");
+            $q->execute([
+                ':t'=>$tenantId, ':r'=>$routerId, ':u'=>$username, ':a'=>$action,
+                ':op'=>$original !== '' ? $original : null, ':tp'=>$target,
+                ':reason'=>substr($reason,0,80), ':status'=>$status, ':err'=>$error, ':actor'=>$actorId,
+            ]);
+        }
+        return ['ok'=>$status === 'success', 'status'=>$status, 'action'=>$action, 'original_profile'=>$original, 'target_profile'=>$target, 'actual'=>$actual];
+    }
+
+    public function provision(int $tenantId, int $serviceId): array
+    {
+        $row = $this->service($tenantId, $serviceId);
+        $router = $this->router($row);
+        try {
+            $this->client->connect($router);
+            $args = ['name'=>$row['username']];
+            if (!empty($row['password_encrypted'])) $args['password'] = $this->secrets->decrypt($row['password_encrypted']);
+            return ['ok'=>true, 'result'=>$this->client->command('/ppp/secret/add', $args)];
+        } finally { try { $this->client->disconnect(); } catch (\Throwable $ignore) {} }
+    }
+
+    public function suspend(int $tenantId, int $serviceId): void { $this->execute($tenantId, $serviceId, 'suspend', 'billing_overdue'); }
+    public function disable(int $tenantId, int $serviceId): void { $this->execute($tenantId, $serviceId, 'disable', 'manual'); }
+    public function enable(int $tenantId, int $serviceId): void { $this->execute($tenantId, $serviceId, 'enable', 'manual'); }
+    public function restore(int $tenantId, int $serviceId): void { $this->execute($tenantId, $serviceId, 'enable', 'payment_restore'); }
 }
