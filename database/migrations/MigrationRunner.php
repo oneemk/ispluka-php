@@ -27,10 +27,7 @@ final class MigrationRunner
         );
     }
 
-    /**
-     * @param list<MigrationInterface> $migrations
-     * @return list<string>
-     */
+    /** @param array<string, object> $migrations */
     public function migrate(array $migrations): array
     {
         $this->ensureRepository();
@@ -39,11 +36,11 @@ final class MigrationRunner
         $executed = [];
 
         foreach ($migrations as $name => $migration) {
-            if (!$migration instanceof MigrationInterface) {
+            if (!is_object($migration) || !method_exists($migration, 'up')) {
                 throw new RuntimeException('Invalid migration: ' . (string) $name);
             }
 
-            $migrationName = is_string($name) ? $name : $migration::class;
+            $migrationName = (string) $name;
             if (isset($applied[$migrationName])) {
                 continue;
             }
@@ -54,10 +51,7 @@ final class MigrationRunner
                 $statement = $this->pdo->prepare(
                     'INSERT INTO ' . self::TABLE . ' (migration, batch) VALUES (:migration, :batch)'
                 );
-                $statement->execute([
-                    'migration' => $migrationName,
-                    'batch' => $batch,
-                ]);
+                $statement->execute(['migration' => $migrationName, 'batch' => $batch]);
                 $this->pdo->commit();
                 $executed[] = $migrationName;
             } catch (\Throwable $exception) {
@@ -71,9 +65,6 @@ final class MigrationRunner
         return $executed;
     }
 
-    /**
-     * @return array<string, bool>
-     */
     private function appliedNames(): array
     {
         $rows = $this->pdo->query('SELECT migration FROM ' . self::TABLE . ' ORDER BY id')?->fetchAll() ?: [];
