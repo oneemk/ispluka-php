@@ -42,7 +42,10 @@ final class RouterOsApiClient implements MikrotikClientInterface
             STREAM_CLIENT_CONNECT,
             stream_context_create($context)
         );
-        if (!is_resource($this->socket)) throw new RuntimeException('Unable to connect to MikroTik router.');
+        if (!is_resource($this->socket)) {
+            $detail = trim($errstr) !== '' ? ': ' . trim($errstr) : '';
+            throw new RuntimeException('Unable to connect to MikroTik router (' . $host . ':' . $port . ')' . $detail);
+        }
 
         stream_set_timeout($this->socket, 8);
         $reply = $this->command('/login', ['name' => $username, 'password' => $password]);
