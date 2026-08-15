@@ -1,4 +1,4 @@
-const CACHE = 'ispluka-static-v2';
+const CACHE = 'ispluka-static-v3';
 const STATIC_PREFIXES = ['/assets/', '/manifest.json', '/favicon.ico'];
 
 self.addEventListener('install', event => {
@@ -8,7 +8,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))
+      .then(keys => Promise.all(keys.map(key => caches.delete(key))))
       .then(() => self.clients.claim())
   );
 });
@@ -20,11 +20,14 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Never cache application/API responses. They must always reach PHP.
+  // Do not intercept JavaScript files. This avoids the cPanel/ServiceWorker
+  // corrupted-content issue seen with mikrotik-routers.js.
+  if (url.pathname.endsWith('.js')) return;
+
+  // Never intercept application/API responses.
   if (url.pathname.startsWith('/api/')) return;
 
-  // Only handle static assets. This prevents the service worker from
-  // corrupting/intercepting dynamic HTML and API requests.
+  // Only cache safe static non-JS assets.
   if (!STATIC_PREFIXES.some(prefix => url.pathname === prefix || url.pathname.startsWith(prefix))) return;
 
   event.respondWith(
