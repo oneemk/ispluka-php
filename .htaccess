@@ -1,0 +1,19 @@
+# cPanel/LiteSpeed project-root fallback.
+# The recommended document root is /public, but some cPanel setups point
+# the domain at the repository root. Keep both layouts working.
+Options -Indexes
+RewriteEngine On
+
+# Serve public static assets when the domain document root is the project root.
+RewriteRule ^assets/(.*)$ public/assets/$1 [L]
+
+# Serve the public front controller for application routes.
+RewriteRule ^$ public/index.php [L]
+RewriteRule ^(?!public/)(.*)$ public/index.php [QSA,L]
+
+<IfModule mod_headers.c>
+Header always set X-Content-Type-Options "nosniff"
+Header always set X-Frame-Options "SAMEORIGIN"
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>
