@@ -43,8 +43,9 @@ final class RouterService
             $this->routers->markConnection($tenantId,$routerId,true);
             return ['ok'=>true,'identity'=>$identity[0]['name']??null];
         } catch(\Throwable $e) {
-            $this->routers->markConnection($tenantId,$routerId,false,$e->getMessage());
-            return ['ok'=>false,'error'=>'Router connection failed.'];
+            $message=trim($e->getMessage())!==''?$e->getMessage():'Unknown MikroTik connection error.';
+            $this->routers->markConnection($tenantId,$routerId,false,$message);
+            return ['ok'=>false,'error'=>$message];
         } finally { try{$this->client->disconnect();}catch(\Throwable $ignore){} }
     }
 
