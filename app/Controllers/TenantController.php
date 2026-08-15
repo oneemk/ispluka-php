@@ -10,6 +10,7 @@ use Ispluka\Core\Auth\RoleManager;
 use Ispluka\Core\Database\Database;
 use Ispluka\Core\Http\Request;
 use Ispluka\Core\Http\Response;
+use Ispluka\Core\Security\Csrf;
 use Throwable;
 
 final class TenantController
@@ -18,6 +19,7 @@ final class TenantController
         private readonly Database $database,
         private readonly AuthManager $auth,
         private readonly RoleManager $roles,
+        private readonly Csrf $csrf,
     ) {
     }
 
@@ -34,7 +36,7 @@ final class TenantController
              ORDER BY t.id DESC"
         )->fetchAll();
 
-        $csrf = htmlspecialchars((string) $this->csrfToken(), ENT_QUOTES, 'UTF-8');
+        $csrf = htmlspecialchars($this->csrf->token(), ENT_QUOTES, 'UTF-8');
         $rows = '';
         foreach ($tenants as $tenant) {
             $rows .= '<tr><td>'.(int)$tenant['id'].'</td><td><strong>'.htmlspecialchars((string)$tenant['name']).'</strong><br><span class="muted">'.htmlspecialchars((string)$tenant['code']).'</span></td><td>'.htmlspecialchars((string)$tenant['status']).'</td><td>'.(int)$tenant['users_count'].'</td><td>'.(int)$tenant['customers_count'].'</td><td>'.htmlspecialchars((string)$tenant['created_at']).'</td></tr>';
@@ -93,11 +95,6 @@ final class TenantController
         );
         $statement->execute(['user_id' => $this->auth->userId()]);
         if ($statement->fetchColumn() === false) throw new \RuntimeException('Forbidden.', 403);
-    }
-
-    private function csrfToken(): string
-    {
-        return (string) ($_SESSION['_csrf'] ?? '');
     }
 
     private function safeError(Throwable $e): string
