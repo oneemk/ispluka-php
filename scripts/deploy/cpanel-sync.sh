@@ -14,35 +14,40 @@ if [ ! -d "$DOCROOT" ]; then
   exit 1
 fi
 
-# cPanel currently serves ispluka.online from $HOME/public_html.
-# Synchronize the public tree, but keep the application source in the Git
-# repository outside the web document root.
+# cPanel serves ispluka.online from $HOME/public_html.
+# Synchronize only the public tree; keep application source outside the web root.
 rsync -a --delete \
   --exclude='.well-known/' \
   --exclude='error_log' \
   "$ROOT/public/" "$DOCROOT/"
 
-# The public front controller normally expects bootstrap/app.php one level
-# above public/. Because cPanel serves from $HOME/public_html while the Git
-# checkout lives elsewhere, make the live index a tiny wrapper that loads the
-# repository's real public/index.php. This keeps app/, config/, database/,
-# routes/ and vendor/ outside the web root.
+# cPanel's document root is separate from the Git checkout. Keep a small
+# wrapper in the live document root that loads the real front controller.
+# Use POSIX shell syntax so this script works with /bin/sh on cPanel.
 cat > "$DOCROOT/index.php" <<PHP
 <?php
 
 declare(strict_types=1);
 
-require ${ROOT@Q}/public/index.php;
+require '$ROOT/public/index.php';
 PHP
 
 chmod 0644 "$DOCROOT/index.php"
 
-printf '%s\n' "Deployment sync complete: $DOCROOT"
-printf '%s\n' "Live front controller: $DOCROOT/index.php -> $ROOT/public/index.php"
-printf '%s\n' "Asset check:"
-if [ -f "$DOCROOT/assets/js/mikrotik-routers.js" ]; then
-  ls -lh "$DOCROOT/assets/js/mikrotik-routers.js"
-else
+# Verify the deployed entry point and critical MikroTik asset before reporting success.
+if [ ! -s "$DOCROOT/index.php" ]; then
+  echo "ERROR: live index.php is empty" >&2
+  exit 1
+fi
+
+if [ ! -f "$DOCROOT/assets/js/mikrotik-routers.js" ]; then
   echo "ERROR: mikrotik-routers.js was not deployed" >&2
   exit 1
 fi
+
+printf '%s\n' "Deployment sync complete: $DOCROOT"
+printf '%s\n' "Live front controller: $DOCROOT/index.php -> $ROOT/public/index.php"
+printf '%s\n' "Asset check:"
+ls -lh "$DOCROOT/assets/js/mikrotik-routers.js"
+printf '%s\n' "Index check:"
+ls -lh "$DOCROOT/index.php"
