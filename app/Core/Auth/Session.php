@@ -8,6 +8,7 @@ use RuntimeException;
 
 final class Session
 {
+    private const COOKIE_NAME = 'ISPLUKA_SESSION';
     private bool $started = false;
 
     public function start(): void
@@ -16,6 +17,10 @@ final class Session
             $this->started = true;
             return;
         }
+
+        session_name(self::COOKIE_NAME);
+        ini_set('session.use_strict_mode', '1');
+        ini_set('session.use_only_cookies', '1');
 
         $configured = session_set_cookie_params([
             'lifetime' => 0,
@@ -35,7 +40,9 @@ final class Session
     public function regenerate(): void
     {
         $this->start();
-        session_regenerate_id(true);
+        if (!session_regenerate_id(true)) {
+            throw new RuntimeException('Unable to regenerate secure session.');
+        }
     }
 
     public function get(string $key, mixed $default = null): mixed
@@ -77,6 +84,15 @@ final class Session
 
     private function isHttps(): bool
     {
-        return isset($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off';
+        if (isset($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') {
+            return true;
+        }
+
+        $forwardedProto = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '';
+        if (is_string($forwardedProto)) {
+            return strtolower(trim(explode(',', $forwardedProto)[0])) === 'https';
+        }
+
+        return false;
     }
 }
