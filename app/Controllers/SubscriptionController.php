@@ -1,0 +1,50 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Ispluka\Controllers;
+
+use Ispluka\Core\Auth\AuthManager;
+use Ispluka\Core\Database\Database;
+use Ispluka\Core\Http\Request;
+use Ispluka\Core\Http\Response;
+use Ispluka\Core\Security\Csrf;
+use Throwable;
+
+final class SubscriptionController
+{
+    public function __construct(private readonly Database $database, private readonly AuthManager $auth, private readonly Csrf $csrf) {}
+
+    public function page(): Response
+    {
+        $uid=$this->auth->userId(); if($uid===null)return Response::redirect('/login');
+        $role=$this->auth->roleCode(); $pdo=$this->database->pdo(); $token=htmlspecialchars($this->csrf->token(),ENT_QUOTES,'UTF-8');
+        if($role==='master_admin')return $this->masterPage($pdo,$token);
+        $s=$pdo->prepare("SELECT t.name,ts.plan_code,ts.status,ts.starts_at,ts.ends_at FROM users u JOIN tenants t ON t.id=u.tenant_id LEFT JOIN LATERAL (SELECT * FROM tenant_subscriptions WHERE tenant_id=t.id ORDER BY id DESC LIMIT 1) ts ON true WHERE u.id=:uid");$s->execute(['uid'=>$uid]);$row=$s->fetch()?:[];
+        $ends=$row['ends_at']??null; $name=htmlspecialchars((string)($row['name']??'ISPLUKA'),ENT_QUOTES,'UTF-8'); $endText=$ends?htmlspecialchars((string)$ends,ENT_QUOTES,'UTF-8'):'No expiry';
+        return Response::text('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/css/app.css"><title>Subscription · ISPLUKA</title></head><body><main class="main"><div class="container"><section class="card stack"><h1>Subscription expired</h1><p>Your '.$name.' account cannot use ERP services until the subscription is renewed.</p><p><strong>Status:</strong> '.htmlspecialchars((string)($row['status']??'expired')).'<br><strong>Valid until:</strong> '.$endText.'</p><p class="muted">Please contact the platform administrator to renew or extend your subscription.</p><div class="actions"><a class="btn btn-secondary" href="/logout">Sign in again</a></div></section></div></main></body></html>');
+    }
+
+    public function extend(Request $request): Response
+    {
+        $this->requireMaster(); if(!$this->csrf->validate((string)$request->input('_csrf','')))return Response::text('Invalid CSRF token.',419);
+        $tenantId=(int)$request->input('tenant_id',0);$userId=(int)$request->input('user_id',0);$days=max(1,min(36500,(int)$request->input('days',30)));$pdo=$this->database->pdo();
+        try {
+            if($userId>0){$s=$pdo->prepare("SELECT r.code FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.id=:uid ORDER BY CASE WHEN r.code='reseller' THEN 0 ELSE 1 END LIMIT 1");$s->execute(['uid'=>$userId]);if($s->fetchColumn()!=='reseller')return Response::text('Only reseller subscriptions can be extended by user.',422);$pdo->prepare("INSERT INTO user_subscriptions(user_id,plan_code,amount,starts_at,ends_at,status) VALUES(:uid,'reseller',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP + (:days * INTERVAL '1 day'),'active')")->execute(['uid'=>$userId,'days'=>$days]);}
+            elseif($tenantId>0){$pdo->prepare("INSERT INTO tenant_subscriptions(tenant_id,plan_code,amount,starts_at,ends_at,status) VALUES(:tid,'admin',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP + (:days * INTERVAL '1 day'),'active')")->execute(['tid'=>$tenantId,'days'=>$days]);$pdo->prepare("UPDATE tenants SET status='active',updated_at=CURRENT_TIMESTAMP WHERE id=:id")->execute(['id'=>$tenantId]);}
+            return Response::redirect('/admin/subscriptions?updated=1');
+        } catch(Throwable){return Response::text('Unable to extend subscription.',422);}
+    }
+
+    private function masterPage(PDO $pdo,string $token): Response
+    {
+        $tenants=$pdo->query("SELECT t.id,t.name,t.code,t.status,ts.status subscription_status,ts.ends_at FROM tenants t LEFT JOIN LATERAL (SELECT status,ends_at FROM tenant_subscriptions WHERE tenant_id=t.id ORDER BY id DESC LIMIT 1) ts ON true WHERE t.deleted_at IS NULL ORDER BY t.id DESC")->fetchAll();$rows='';foreach($tenants as $t){$rows.='<tr><td>'.(int)$t['id'].'</td><td>'.htmlspecialchars((string)$t['name']).'<br><small>'.htmlspecialchars((string)$t['code']).'</small></td><td>'.htmlspecialchars((string)($t['subscription_status']??'none')).'</td><td>'.htmlspecialchars((string)($t['ends_at']??'—')).'</td><td><form method="post" action="/admin/subscriptions" class="actions"><input type="hidden" name="_csrf" value="'.$token.'"><input type="hidden" name="tenant_id" value="'.(int)$t['id'].'"><input name="days" type="number" min="1" max="36500" value="30"><button type="submit">Extend Admin</button></form></td></tr>';}
+        $resellers=$pdo->query("SELECT u.id,u.name,u.email,COALESCE(us.status,'none') status,us.ends_at FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id LEFT JOIN LATERAL (SELECT status,ends_at FROM user_subscriptions WHERE user_id=u.id ORDER BY id DESC LIMIT 1) us ON true WHERE r.code='reseller' AND u.deleted_at IS NULL ORDER BY u.id DESC")->fetchAll();$rr='';foreach($resellers as $r){$rr.='<tr><td>'.(int)$r['id'].'</td><td>'.htmlspecialchars((string)$r['name']).'<br><small>'.htmlspecialchars((string)$r['email']).'</small></td><td>'.htmlspecialchars((string)$r['status']).'</td><td>'.htmlspecialchars((string)($r['ends_at']??'—')).'</td><td><form method="post" action="/admin/subscriptions" class="actions"><input type="hidden" name="_csrf" value="'.$token.'"><input type="hidden" name="user_id" value="'.(int)$r['id'].'"><input name="days" type="number" min="1" max="36500" value="30"><button type="submit">Extend Reseller</button></form></td></tr>';}
+        return Response::text('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/css/app.css"><title>Subscriptions · ISPLUKA</title></head><body><div class="app-shell"><main class="main"><div class="container"><div class="page-title"><div><h1>Subscriptions</h1><p class="muted">Master Admin controls Admin and Reseller expiry.</p></div><a class="btn btn-secondary" href="/">Dashboard</a></div><section class="card"><h2>Admins / Tenants</h2><div class="table-wrap"><table><thead><tr><th>ID</th><th>Tenant</th><th>Status</th><th>Expires</th><th>Extend</th></tr></thead><tbody>'.$rows.'</tbody></table></div></section><section class="card"><h2>Resellers</h2><div class="table-wrap"><table><thead><tr><th>ID</th><th>User</th><th>Status</th><th>Expires</th><th>Extend</th></tr></thead><tbody>'.$rr.'</tbody></table></div></section></div></main></div></body></html>');
+    }
+
+    private function requireMaster(): void
+    {
+        $uid=$this->auth->userId();if(!$uid)throw new \RuntimeException('Authentication required.',401);$s=$this->database->pdo()->prepare("SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=:uid AND r.tenant_id IS NULL AND r.code='master_admin'");$s->execute(['uid'=>$uid]);if($s->fetchColumn()===false)throw new \RuntimeException('Forbidden.',403);
+    }
+}
