@@ -19,14 +19,14 @@ final class RouterService
         $host=trim((string)($data['host']??''));$name=trim((string)($data['name']??''));$code=trim((string)($data['code']??''));$username=trim((string)($data['username']??''));$password=(string)($data['password']??'');$apiPort=(int)($data['api_port']??8728);
         if($tenantId<=0||$name===''||$code===''||$host===''||$username===''||$password==='') throw new InvalidArgumentException('Router name, code, host, username and password are required.');
         $this->validatePorts($apiPort,$data['api_ssl_port']??null);$sslPort=isset($data['api_ssl_port'])&&$data['api_ssl_port']!==''?(int)$data['api_ssl_port']:null;
-        return $this->routers->create($tenantId,['name'=>$name,'code'=>$code,'host'=>$host,'api_port'=>$apiPort,'api_ssl_port'=>$sslPort,'username'=>$username,'encrypted_password'=>$this->secrets->encrypt($password),'verify_ssl'=>(bool)($data['verify_ssl']??true),'status'=>'offline','metadata'=>$data['metadata']??[]]);
+        return $this->routers->create($tenantId,['name'=>$name,'code'=>$code,'host'=>$host,'api_port'=>$apiPort,'api_ssl_port'=>$sslPort,'username'=>$username,'encrypted_password'=>$this->secrets->encrypt($password),'verify_ssl'=>(bool)($data['verify_ssl']??true),'status'=>'unknown','metadata'=>$data['metadata']??[]]);
     }
     public function update(int $tenantId,int $routerId,array $data): void
     {
         $router=$this->routers->find($tenantId,$routerId);if($router===null) throw new RuntimeException('Router not found.');
         $name=trim((string)($data['name']??''));$code=trim((string)($data['code']??''));$host=trim((string)($data['host']??''));$username=trim((string)($data['username']??''));$apiPort=(int)($data['api_port']??8728);$ssl=$data['api_ssl_port']??null;
         if($name===''||$code===''||$host===''||$username==='') throw new InvalidArgumentException('Router name, code, host and username are required.');
-        $this->validatePorts($apiPort,$ssl);$sslPort=($ssl!==null&&$ssl!=='')?(int)$ssl:null;$payload=['name'=>$name,'code'=>$code,'host'=>$host,'api_port'=>$apiPort,'api_ssl_port'=>$sslPort,'username'=>$username,'verify_ssl'=>(bool)($data['verify_ssl']??false),'status'=>'offline','last_error'=>null];$password=(string)($data['password']??'');if($password!=='')$payload['encrypted_password']=$this->secrets->encrypt($password);$this->routers->update($tenantId,$routerId,$payload);
+        $this->validatePorts($apiPort,$ssl);$sslPort=($ssl!==null&&$ssl!=='')?(int)$ssl:null;$payload=['name'=>$name,'code'=>$code,'host'=>$host,'api_port'=>$apiPort,'api_ssl_port'=>$sslPort,'username'=>$username,'verify_ssl'=>(bool)($data['verify_ssl']??false),'status'=>'unknown','last_error'=>null];$password=(string)($data['password']??'');if($password!=='')$payload['encrypted_password']=$this->secrets->encrypt($password);$this->routers->update($tenantId,$routerId,$payload);
     }
     public function delete(int $tenantId,int $routerId): void { if($routerId<=0||!$this->routers->find($tenantId,$routerId)) throw new RuntimeException('Router not found.');$this->routers->delete($tenantId,$routerId); }
     public function status(int $tenantId,int $routerId): array { return $this->testConnection($tenantId,$routerId); }
