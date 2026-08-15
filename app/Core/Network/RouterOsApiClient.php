@@ -48,16 +48,47 @@ final class RouterOsApiClient implements MikrotikClientInterface
         }
 
         stream_set_timeout($this->socket, 8);
-        $reply = $this->command('/login', ['name' => $username, 'password' => $password]);
-        foreach ($reply as $row) {
-            if (isset($row['!trap']) || isset($row['!fatal'])) {
+        $this->login($username, $password);
+    }
+
+    private function login(string $username, string $password): void
+    {
+        // RouterOS >= 6.43 accepts username/password directly.
+        $reply = $this->commandAll('/login', ['name' => $username, 'password' => $password]);
+        foreach ($reply as $sentence) {
+            if (($sentence['!type'] ?? '') === '!trap' || ($sentence['!type'] ?? '') === '!fatal') {
                 $this->disconnect();
-                throw new RuntimeException('MikroTik authentication failed.');
+                throw new RuntimeException('MikroTik authentication failed: ' . (string)($sentence['message'] ?? 'login rejected'));
+            }
+        }
+
+        // RouterOS < 6.43 returns a challenge (=ret=...). Complete legacy MD5 login.
+        foreach ($reply as $sentence) {
+            if (isset($sentence['ret'])) {
+                $challenge = hex2bin((string)$sentence['ret']);
+                if ($challenge === false) throw new RuntimeException('Invalid MikroTik login challenge.');
+                $response = '00' . md5("\x00" . $password . $challenge);
+                $legacy = $this->commandAll('/login', ['name' => $username, 'response' => $response]);
+                foreach ($legacy as $sentence2) {
+                    if (($sentence2['!type'] ?? '') === '!trap' || ($sentence2['!type'] ?? '') === '!fatal') {
+                        $this->disconnect();
+                        throw new RuntimeException('MikroTik authentication failed: ' . (string)($sentence2['message'] ?? 'login rejected'));
+                    }
+                }
+                break;
             }
         }
     }
 
     public function command(string $command, array $arguments = []): array
+    {
+        return array_values(array_filter(
+            $this->commandAll($command, $arguments),
+            static fn(array $s): bool => ($s['!type'] ?? '') === '!re'
+        ));
+    }
+
+    private function commandAll(string $command, array $arguments = []): array
     {
         if (!is_resource($this->socket)) throw new RuntimeException('MikroTik connection is not open.');
         $words = [$command];
@@ -103,7 +134,7 @@ final class RouterOsApiClient implements MikrotikClientInterface
                 throw new RuntimeException((string)($sentence['message'] ?? 'RouterOS command failed.'));
             }
         }
-        return array_values(array_filter($sentences, static fn(array $s): bool => ($s['!type'] ?? '') === '!re'));
+        return $sentences;
     }
 
     private function writeWord(string $word): void
