@@ -14,6 +14,16 @@ final class Authorize
     {
     }
 
+    public function hasPermission(string $permission): bool
+    {
+        return $this->authorization->can($permission);
+    }
+
+    public function hasRole(string $roleCode): bool
+    {
+        return $this->authorization->hasRole($roleCode);
+    }
+
     public function permission(string $permission): callable
     {
         return function (Request $request, callable $next) use ($permission): Response {
