@@ -22,7 +22,6 @@ use Ispluka\Core\Security\Csrf;
 use Ispluka\Core\Security\Encryption;
 use Ispluka\Core\Security\SecretBox;
 use Ispluka\Core\Network\MikrotikAutomationService;
-use Ispluka\Core\Network\PppoeEnforcementAuditQuery;
 use Ispluka\Core\Network\RouterOsApiClient;
 use Ispluka\Middleware\Authorize;
 use Ispluka\Repositories\CustomerRepository;
@@ -51,7 +50,7 @@ $mikrotikClient=new RouterOsApiClient();
 $secretBox=new SecretBox((string)($_ENV['APP_KEY']??''));
 $automation=new MikrotikAutomationService($database,$secretBox,$mikrotikClient);
 $mikrotikManualActionController=new MikrotikManualActionController($auth,$automation);
-$tenantController=new TenantController($database,$auth,new RoleManager($database));
+$tenantController=new TenantController($database,$auth,new RoleManager($database),$csrf);
 
 $csrfMiddleware=static function(Request $request,callable $next)use($csrf):Response{
     if(!$csrf->validate($request->input('_csrf'))) return Response::json(['error'=>['message'=>'Invalid CSRF token.']],419);
