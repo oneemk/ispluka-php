@@ -2,23 +2,20 @@
 
 declare(strict_types=1);
 
-use Ispluka\Core\Http\Response;
-
-// cPanel/LiteSpeed fallback: if a request for a real public asset reaches
-// the front controller, serve the file directly instead of sending it to
-// the application router.
+// cPanel/LiteSpeed fallback: serve real public files directly when the
+// request is sent through the front controller. Avoid realpath() here because
+// some LiteSpeed/cPanel PHP configurations can resolve rewritten paths
+// differently from the filesystem path.
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $relativePath = ltrim(rawurldecode($requestPath), '/');
-$publicRoot = realpath(__DIR__);
-$assetPath = $publicRoot !== false ? realpath($publicRoot . DIRECTORY_SEPARATOR . $relativePath) : false;
+$publicRoot = __DIR__;
 
-if (
-    $relativePath !== '' &&
-    $assetPath !== false &&
-    $publicRoot !== false &&
-    ($assetPath === $publicRoot || str_starts_with($assetPath, $publicRoot . DIRECTORY_SEPARATOR)) &&
-    is_file($assetPath)
-) {
+// Only allow static files from the public directory. Never execute PHP files
+// through this fallback.
+if ($relativePath !== '' && !str_contains($relativePath, "\0")) {
+    $assetPath = $publicRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+    $extension = strtolower(pathinfo($assetPath, PATHINFO_EXTENSION));
+
     $mimeTypes = [
         'css' => 'text/css; charset=UTF-8',
         'js' => 'application/javascript; charset=UTF-8',
@@ -35,16 +32,14 @@ if (
         'ttf' => 'font/ttf',
     ];
 
-    $extension = strtolower(pathinfo($assetPath, PATHINFO_EXTENSION));
-    header('Content-Type: ' . ($mimeTypes[$extension] ?? 'application/octet-stream'));
-    header('Cache-Control: public, max-age=86400');
-    header('X-Content-Type-Options: nosniff');
-    readfile($assetPath);
-    exit;
+    if (isset($mimeTypes[$extension]) && is_file($assetPath)) {
+        header('Content-Type: ' . $mimeTypes[$extension]);
+        header('Cache-Control: public, max-age=86400');
+        header('X-Content-Type-Options: nosniff');
+        readfile($assetPath);
+        exit;
+    }
 }
 
 $app = require dirname(__DIR__) . '/bootstrap/app.php';
-
-// The health route is intentionally minimal until the full route configuration is introduced.
-// The application will return a 404 until routes are registered in a later bootstrap step.
 $app->run();
