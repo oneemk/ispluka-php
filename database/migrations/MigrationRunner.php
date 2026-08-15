@@ -27,7 +27,13 @@ final class MigrationRunner
         );
     }
 
-    /** @param array<string, object> $migrations */
+    /**
+     * Migrations are keyed by their filename so PHP and SQL migrations can
+     * safely coexist even when their numeric prefixes overlap.
+     *
+     * @param array<string, object> $migrations
+     * @return list<string>
+     */
     public function migrate(array $migrations): array
     {
         $this->ensureRepository();
@@ -51,7 +57,10 @@ final class MigrationRunner
                 $statement = $this->pdo->prepare(
                     'INSERT INTO ' . self::TABLE . ' (migration, batch) VALUES (:migration, :batch)'
                 );
-                $statement->execute(['migration' => $migrationName, 'batch' => $batch]);
+                $statement->execute([
+                    'migration' => $migrationName,
+                    'batch' => $batch,
+                ]);
                 $this->pdo->commit();
                 $executed[] = $migrationName;
             } catch (\Throwable $exception) {
@@ -65,6 +74,9 @@ final class MigrationRunner
         return $executed;
     }
 
+    /**
+     * @return array<string, bool>
+     */
     private function appliedNames(): array
     {
         $rows = $this->pdo->query('SELECT migration FROM ' . self::TABLE . ' ORDER BY id')?->fetchAll() ?: [];

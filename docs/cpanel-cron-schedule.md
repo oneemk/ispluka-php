@@ -12,7 +12,7 @@ Replace `CPANEL_USER` with the actual cPanel account username.
 
 ## Database migration
 
-After `.env` and PostgreSQL are configured, run:
+After `.env` and PostgreSQL are configured, run the migration command from the repository root:
 
 ```bash
 cd /home/CPANEL_USER/repositories/ispluka-php
@@ -29,7 +29,7 @@ Run the overdue eligibility check every day at **12:05 PM** in the hosting accou
 5 12 * * * /usr/local/bin/php /home/CPANEL_USER/repositories/ispluka-php/scripts/cron/overdue-enforcement.php >/dev/null 2>&1
 ```
 
-The script only evaluates overdue services and queues network jobs. The network worker processes pending jobs separately at a short interval:
+The script only evaluates overdue services and queues network jobs. It does not open a MikroTik connection for every customer from the web request. The existing network worker should process pending network jobs separately at a short interval (for example every minute):
 
 ```cron
 * * * * * /usr/local/bin/php /home/CPANEL_USER/repositories/ispluka-php/scripts/cron/network-worker.php 20 >/dev/null 2>&1
