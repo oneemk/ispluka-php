@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Ispluka\Core\Auth;
 
 use Ispluka\Core\Database\Database;
-use RuntimeException;
 
 final class AuthManager
 {
     private const SESSION_KEY = 'auth.user_id';
     private const SESSION_TENANT_KEY = 'auth.tenant_id';
+    private const SESSION_ROLE_KEY = 'auth.role_code';
 
     public function __construct(
         private readonly Database $database,
@@ -18,20 +18,33 @@ final class AuthManager
     ) {
     }
 
-    public function attempt(string $login, string $password): bool
+    public function attempt(string $login, string $password, ?string $roleCode = null): bool
     {
         $login = trim($login);
+        $roleCode = $roleCode !== null ? trim($roleCode) : null;
         if ($login === '' || $password === '') {
             return false;
         }
 
-        $statement = $this->database->pdo()->prepare(
-            'SELECT id, tenant_id, password_hash, status, failed_login_attempts, locked_until
-             FROM users
-             WHERE email = :login OR username = :login
-             LIMIT 1'
-        );
-        $statement->execute(['login' => $login]);
+        $sql = 'SELECT u.id, u.tenant_id, u.password_hash, u.status, u.failed_login_attempts, u.locked_until,
+                       COALESCE((SELECT r.code FROM user_roles ur INNER JOIN roles r ON r.id = ur.role_id
+                                 WHERE ur.user_id = u.id ORDER BY CASE WHEN r.code = :preferred_role THEN 0 ELSE 1 END, r.id LIMIT 1), \'\') AS role_code
+                FROM users u
+                WHERE (u.email = :login OR u.username = :login)';
+        if ($roleCode !== null && $roleCode !== '') {
+            $sql .= ' AND EXISTS (
+                SELECT 1 FROM user_roles ur INNER JOIN roles r ON r.id = ur.role_id
+                WHERE ur.user_id = u.id AND r.code = :role_code
+            )';
+        }
+        $sql .= ' LIMIT 1';
+
+        $statement = $this->database->pdo()->prepare($sql);
+        $params = ['login' => $login, 'preferred_role' => $roleCode ?? ''];
+        if ($roleCode !== null && $roleCode !== '') {
+            $params['role_code'] = $roleCode;
+        }
+        $statement->execute($params);
         $user = $statement->fetch();
 
         if (!is_array($user) || ($user['status'] ?? '') !== 'active') {
@@ -51,6 +64,7 @@ final class AuthManager
         $this->session->regenerate();
         $this->session->put(self::SESSION_KEY, (int) $user['id']);
         $this->session->put(self::SESSION_TENANT_KEY, $user['tenant_id'] !== null ? (int) $user['tenant_id'] : null);
+        $this->session->put(self::SESSION_ROLE_KEY, (string) ($user['role_code'] ?? ''));
 
         return true;
     }
@@ -70,6 +84,12 @@ final class AuthManager
     {
         $value = $this->session->get(self::SESSION_TENANT_KEY);
         return is_int($value) || (is_string($value) && ctype_digit($value)) ? (int) $value : null;
+    }
+
+    public function roleCode(): ?string
+    {
+        $value = $this->session->get(self::SESSION_ROLE_KEY);
+        return is_string($value) && $value !== '' ? $value : null;
     }
 
     public function logout(): void
