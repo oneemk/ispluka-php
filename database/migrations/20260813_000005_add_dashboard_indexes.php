@@ -1,7 +1,6 @@
 <?php
 
 declare(strict_types=1);
-use PDO;
 return new class {
  public function up(PDO $pdo): void {
   $pdo->exec('CREATE INDEX IF NOT EXISTS idx_customers_tenant_status ON customers(tenant_id,status)');

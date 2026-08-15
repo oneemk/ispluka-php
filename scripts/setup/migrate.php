@@ -6,7 +6,6 @@ use Ispluka\Core\Database\Database;
 use Ispluka\Core\Environment;
 use Ispluka\Database\Migrations\MigrationInterface;
 use Ispluka\Database\Migrations\MigrationRunner;
-use PDO;
 
 $root = dirname(__DIR__, 2);
 require_once $root . '/vendor/autoload.php';

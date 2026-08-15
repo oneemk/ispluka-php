@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Ispluka\Database\Migrations\MigrationInterface;
-use PDO;
 
 return new class implements MigrationInterface
 {

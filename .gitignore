@@ -42,3 +42,4 @@ coverage/
 !/storage/backups/.gitkeep
 !/storage/exports/.gitkeep
 !/public/uploads/.gitkeep
+error_log

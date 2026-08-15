@@ -1,7 +1,6 @@
 <?php
 
 declare(strict_types=1);
-use PDO;
 return new class {
  public function up(PDO $pdo):void{
   $pdo->exec("CREATE TABLE IF NOT EXISTS reseller_profiles (id BIGSERIAL PRIMARY KEY,tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,commission_percent NUMERIC(5,2) NOT NULL DEFAULT 0 CHECK(commission_percent>=0 AND commission_percent<=100),credit_limit BIGINT NOT NULL DEFAULT 0 CHECK(credit_limit>=0),balance BIGINT NOT NULL DEFAULT 0,active BOOLEAN NOT NULL DEFAULT TRUE,created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(tenant_id,user_id))");

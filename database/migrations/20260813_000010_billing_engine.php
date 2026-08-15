@@ -1,7 +1,6 @@
 <?php
 
 declare(strict_types=1);
-use PDO;
 return new class {
  public function up(PDO $pdo): void {
   $pdo->exec("CREATE TABLE IF NOT EXISTS invoices (id BIGSERIAL PRIMARY KEY, tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, customer_id BIGINT NOT NULL REFERENCES customers(id) ON DELETE CASCADE, service_id BIGINT NULL REFERENCES customer_services(id) ON DELETE SET NULL, invoice_no VARCHAR(80) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'issued', issue_date DATE NOT NULL DEFAULT CURRENT_DATE, due_date DATE NOT NULL, subtotal BIGINT NOT NULL DEFAULT 0, discount BIGINT NOT NULL DEFAULT 0, total BIGINT NOT NULL DEFAULT 0, paid_amount BIGINT NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(tenant_id,invoice_no))");

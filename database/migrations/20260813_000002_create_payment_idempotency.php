@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-use Ispluka\Core\Database\Migration;
-use PDO;
+use Ispluka\Database\Migrations\MigrationInterface;
 
-return new class implements Migration {
+return new class implements MigrationInterface {
     public function up(PDO $pdo): void
     {
         $pdo->exec("CREATE TABLE IF NOT EXISTS payment_idempotency (

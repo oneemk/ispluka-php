@@ -1,7 +1,6 @@
 <?php
 
 declare(strict_types=1);
-use PDO;
 return new class {
  public function up(PDO $pdo):void{
   $pdo->exec("CREATE TABLE IF NOT EXISTS inventory_items (id BIGSERIAL PRIMARY KEY,tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,sku VARCHAR(80) NOT NULL,name VARCHAR(180) NOT NULL,category VARCHAR(100),unit VARCHAR(30) NOT NULL DEFAULT 'pcs',purchase_price BIGINT NOT NULL DEFAULT 0,sale_price BIGINT NOT NULL DEFAULT 0,stock_qty NUMERIC(14,3) NOT NULL DEFAULT 0,reorder_level NUMERIC(14,3) NOT NULL DEFAULT 0,active BOOLEAN NOT NULL DEFAULT TRUE,created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(tenant_id,sku))");
