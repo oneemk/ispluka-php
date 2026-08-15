@@ -4,18 +4,19 @@ declare(strict_types=1);
 
 use Ispluka\Core\Http\Response;
 
-// cPanel/LiteSpeed can route static files through the front controller when
-// the document root or rewrite configuration is not pointing directly at
-// /public. Serve real public assets here as a safe fallback.
+// cPanel/LiteSpeed fallback: if a request for a real public asset reaches
+// the front controller, serve the file directly instead of sending it to
+// the application router.
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-$assetPath = realpath(__DIR__ . $requestPath);
+$relativePath = ltrim(rawurldecode($requestPath), '/');
 $publicRoot = realpath(__DIR__);
+$assetPath = $publicRoot !== false ? realpath($publicRoot . DIRECTORY_SEPARATOR . $relativePath) : false;
 
 if (
-    $requestPath !== '/' &&
+    $relativePath !== '' &&
     $assetPath !== false &&
     $publicRoot !== false &&
-    str_starts_with($assetPath, $publicRoot . DIRECTORY_SEPARATOR) &&
+    ($assetPath === $publicRoot || str_starts_with($assetPath, $publicRoot . DIRECTORY_SEPARATOR)) &&
     is_file($assetPath)
 ) {
     $mimeTypes = [
@@ -35,13 +36,9 @@ if (
     ];
 
     $extension = strtolower(pathinfo($assetPath, PATHINFO_EXTENSION));
-    if (isset($mimeTypes[$extension])) {
-        header('Content-Type: ' . $mimeTypes[$extension]);
-    } else {
-        header('Content-Type: application/octet-stream');
-    }
-
+    header('Content-Type: ' . ($mimeTypes[$extension] ?? 'application/octet-stream'));
     header('Cache-Control: public, max-age=86400');
+    header('X-Content-Type-Options: nosniff');
     readfile($assetPath);
     exit;
 }
