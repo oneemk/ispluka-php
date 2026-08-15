@@ -1,1 +1,41 @@
-const CACHE='ispluka-static-v1'; const ASSETS=['/assets/css/app.css','/assets/js/app.js','/manifest.json']; self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()))); self.addEventListener('activate',e=>e.waitUntil(self.clients.claim())); self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return; const u=new URL(e.request.url); if(u.origin!==location.origin)return; e.respondWith(caches.match(e.request).then(cached=>cached||fetch(e.request).then(r=>{const copy=r.clone(); caches.open(CACHE).then(c=>c.put(e.request,copy)); return r}).catch(()=>cached)));});
+const CACHE = 'ispluka-static-v2';
+const STATIC_PREFIXES = ['/assets/', '/manifest.json', '/favicon.ico'];
+
+self.addEventListener('install', event => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Never cache application/API responses. They must always reach PHP.
+  if (url.pathname.startsWith('/api/')) return;
+
+  // Only handle static assets. This prevents the service worker from
+  // corrupting/intercepting dynamic HTML and API requests.
+  if (!STATIC_PREFIXES.some(prefix => url.pathname === prefix || url.pathname.startsWith(prefix))) return;
+
+  event.respondWith(
+    fetch(request)
+      .then(response => {
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE).then(cache => cache.put(request, copy)).catch(() => {});
+        }
+        return response;
+      })
+      .catch(() => caches.match(request).then(cached => cached || Response.error()))
+  );
+});
