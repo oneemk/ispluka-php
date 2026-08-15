@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Ispluka\Services;
 
-use Ispluka\Core\Network\RouterOsClient;
+use Ispluka\Core\Network\MikrotikClientInterface;
 use Ispluka\Core\Security\SecretBox;
 use Ispluka\Repositories\RouterRepository;
 use InvalidArgumentException;
@@ -12,7 +12,11 @@ use RuntimeException;
 
 final class RouterService
 {
-    public function __construct(private readonly RouterRepository $routers, private readonly SecretBox $secrets) {}
+    public function __construct(
+        private readonly RouterRepository $routers,
+        private readonly SecretBox $secrets,
+        private readonly MikrotikClientInterface $client,
+    ) {}
 
     public function list(int $tenantId): array
     { return $this->routers->list($tenantId); }
@@ -22,7 +26,9 @@ final class RouterService
         $host=trim((string)($data['host']??''));$name=trim((string)($data['name']??''));$code=trim((string)($data['code']??''));$username=trim((string)($data['username']??''));$password=(string)($data['password']??'');$apiPort=(int)($data['api_port']??8728);
         if($tenantId<=0||$name===''||$code===''||$host===''||$username===''||$password==='') throw new InvalidArgumentException('Router name, code, host, username and password are required.');
         if($apiPort<1||$apiPort>65535) throw new InvalidArgumentException('Invalid RouterOS API port.');
-        return $this->routers->create($tenantId,['name'=>$name,'code'=>$code,'host'=>$host,'api_port'=>$apiPort,'api_ssl_port'=>isset($data['api_ssl_port'])?(int)$data['api_ssl_port']:null,'username'=>$username,'encrypted_password'=>$this->secrets->encrypt($password),'verify_ssl'=>(bool)($data['verify_ssl']??true),'status'=>'active','metadata'=>$data['metadata']??[]]);
+        $sslPort=isset($data['api_ssl_port'])&&$data['api_ssl_port']!==''?(int)$data['api_ssl_port']:null;
+        if($sslPort!==null&&($sslPort<1||$sslPort>65535)) throw new InvalidArgumentException('Invalid RouterOS SSL API port.');
+        return $this->routers->create($tenantId,['name'=>$name,'code'=>$code,'host'=>$host,'api_port'=>$apiPort,'api_ssl_port'=>$sslPort,'username'=>$username,'encrypted_password'=>$this->secrets->encrypt($password),'verify_ssl'=>(bool)($data['verify_ssl']??true),'status'=>'active','metadata'=>$data['metadata']??[]]);
     }
 
     public function delete(int $tenantId,int $routerId): void
@@ -30,10 +36,16 @@ final class RouterService
 
     public function testConnection(int $tenantId,int $routerId): array
     {
-        $router=$this->routers->find($tenantId,$routerId);if($router===null) throw new RuntimeException('Router not found.');$client=$this->client($router);
-        try{$identity=$client->command('/system/identity/print');$this->routers->markConnection($tenantId,$routerId,true);return ['ok'=>true,'identity'=>$identity[0]['=name']??null];}
-        catch(\Throwable $e){$this->routers->markConnection($tenantId,$routerId,false,$e->getMessage());return ['ok'=>false,'error'=>'Router connection failed.'];}
-        finally{$client->disconnect();}
+        $router=$this->routers->find($tenantId,$routerId);if($router===null) throw new RuntimeException('Router not found.');
+        try {
+            $this->client->connect($this->routerConfig($router));
+            $identity=$this->client->command('/system/identity/print');
+            $this->routers->markConnection($tenantId,$routerId,true);
+            return ['ok'=>true,'identity'=>$identity[0]['name']??null];
+        } catch(\Throwable $e) {
+            $this->routers->markConnection($tenantId,$routerId,false,$e->getMessage());
+            return ['ok'=>false,'error'=>'Router connection failed.'];
+        } finally { try{$this->client->disconnect();}catch(\Throwable $ignore){} }
     }
 
     public function provisionPppoe(int $tenantId,int $routerId,string $username,string $password,string $profile): void
@@ -47,16 +59,22 @@ final class RouterService
 
     private function provisionUser(int $tenantId,int $routerId,string $findCommand,string $addCommand,string $setCommand,string $username,array $data): void
     {
-        $router=$this->routers->find($tenantId,$routerId);if($router===null) throw new RuntimeException('Router not found.');$client=$this->client($router);
-        try{$rows=$client->command($findCommand,['?name'=>$username]);if(!empty($rows[0]['=.id']))$client->command($setCommand,array_merge(['numbers'=>$rows[0]['=.id']],$data));else $client->command($addCommand,$data);$this->routers->markConnection($tenantId,$routerId,true);}
-        catch(\Throwable $e){$this->routers->markConnection($tenantId,$routerId,false,$e->getMessage());throw new RuntimeException('Router provisioning failed.',0,$e);}finally{$client->disconnect();}
+        $router=$this->routers->find($tenantId,$routerId);if($router===null) throw new RuntimeException('Router not found.');
+        try{$this->client->connect($this->routerConfig($router));$rows=$this->client->command($findCommand,['?name'=>$username]);if(!empty($rows[0]['.id']))$this->client->command($setCommand,['.id'=>$rows[0]['.id']]+$data);else $this->client->command($addCommand,$data);$this->routers->markConnection($tenantId,$routerId,true);}
+        catch(\Throwable $e){$this->routers->markConnection($tenantId,$routerId,false,$e->getMessage());throw new RuntimeException('Router provisioning failed.',0,$e);}finally{try{$this->client->disconnect();}catch(\Throwable $ignore){}}
     }
+
     private function toggleUser(int $tenantId,int $routerId,string $findCommand,string $actionCommand,string $username): void
     {
-        $router=$this->routers->find($tenantId,$routerId);if($router===null) throw new RuntimeException('Router not found.');$client=$this->client($router);
-        try{$rows=$client->command($findCommand,['?name'=>$username]);if(empty($rows[0]['=.id']))throw new RuntimeException('Service account not found.');$client->command($actionCommand,['numbers'=>$rows[0]['=.id']]);$this->routers->markConnection($tenantId,$routerId,true);}
-        catch(\Throwable $e){$this->routers->markConnection($tenantId,$routerId,false,$e->getMessage());throw new RuntimeException('Router service state change failed.',0,$e);}finally{$client->disconnect();}
+        $router=$this->routers->find($tenantId,$routerId);if($router===null) throw new RuntimeException('Router not found.');
+        try{$this->client->connect($this->routerConfig($router));$rows=$this->client->command($findCommand,['?name'=>$username]);if(empty($rows[0]['.id']))throw new RuntimeException('Service account not found.');$this->client->command($actionCommand,['.id'=>$rows[0]['.id']]);$this->routers->markConnection($tenantId,$routerId,true);}
+        catch(\Throwable $e){$this->routers->markConnection($tenantId,$routerId,false,$e->getMessage());throw new RuntimeException('Router service state change failed.',0,$e);}finally{try{$this->client->disconnect();}catch(\Throwable $ignore){}}
     }
-    private function client(array $router): RouterOsClient
-    { $port=!empty($router['api_ssl_port'])?(int)$router['api_ssl_port']:(int)$router['api_port'];$client=new RouterOsClient((string)$router['host'],$port,5,(bool)$router['verify_ssl']);$client->connect((string)$router['username'],$this->secrets->decrypt((string)$router['encrypted_password']));return $client; }
+
+    private function routerConfig(array $router): array
+    {
+        $port=!empty($router['api_ssl_port'])?(int)$router['api_ssl_port']:(int)($router['api_port']??8728);
+        if($port<1||$port>65535) throw new RuntimeException('Invalid RouterOS API port.');
+        return ['host'=>(string)$router['host'],'api_port'=>$port,'username'=>(string)$router['username'],'password'=>$this->secrets->decrypt((string)$router['encrypted_password']),'verify_ssl'=>(bool)($router['verify_ssl']??true)];
+    }
 }
