@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Ispluka\Controllers\Auth\LoginController;
 use Ispluka\Controllers\Auth\SignupController;
+use Ispluka\Controllers\CollectionController;
 use Ispluka\Controllers\CustomerController;
 use Ispluka\Controllers\CustomerServiceController;
 use Ispluka\Controllers\DashboardController;
@@ -31,6 +32,7 @@ return static function (
     Csrf $csrf,
     Authorize $authorize,
     DashboardController $dashboardController,
+    CollectionController $collections,
     CustomerController $customers,
     CustomerServiceController $customerServices,
     callable $csrfMiddleware,
@@ -63,8 +65,19 @@ return static function (
     $customerCreate = $authorize->permission('customers.create');
     $customerUpdate = $authorize->permission('customers.update');
     $customerDelete = $authorize->permission('customers.delete');
+    $paymentView = $authorize->permission('payments.view');
+    $paymentManage = $authorize->permission('payments.manage');
+    $reportView = $authorize->permission('reports.view');
     $serviceView = $authorize->permission('services.view');
     $serviceManage = $authorize->permission('services.manage');
+
+    $router->get('/collection', [$collections, 'collectionPage'], [$requireAuth, $paymentManage]);
+    $router->get('/reports/collection', [$collections, 'reportPage'], [$requireAuth, $reportView]);
+    $router->get('/customers/create', [$collections, 'customerCreatePage'], [$requireAuth, $customerCreate]);
+    $router->get('/customers', [$collections, 'customerSearchPage'], [$requireAuth, $customerView]);
+    $router->get('/api/collection/invoices', [$collections, 'customerInvoices'], [$requireAuth, $paymentView]);
+    $router->post('/api/collection', [$collections, 'collect'], [$requireAuth, $paymentManage, $csrfMiddleware]);
+
     $router->get('/api/customers', [$customers, 'index'], [$requireAuth, $customerView]);
     $router->get('/api/customer', [$customers, 'show'], [$requireAuth, $customerView]);
     $router->post('/api/customers', [$customers, 'store'], [$requireAuth, $customerCreate, $csrfMiddleware]);
