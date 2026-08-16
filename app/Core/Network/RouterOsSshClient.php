@@ -14,10 +14,13 @@ final class RouterOsSshClient implements MikrotikClientInterface
 
     public function connect(array $router): void
     {
+        $this->disconnect();
+
         $host = trim((string)($router['host'] ?? ''));
         $port = (int)($router['ssh_port'] ?? 22);
         $username = (string)($router['username'] ?? '');
         $password = (string)($router['password'] ?? '');
+        $timeout = max(3, min(30, (int)($router['connection_timeout'] ?? 8)));
 
         if ($host === '' || $username === '') {
             throw new RuntimeException('Router SSH connection settings are incomplete.');
@@ -26,53 +29,38 @@ final class RouterOsSshClient implements MikrotikClientInterface
             throw new RuntimeException('Invalid RouterOS SSH port: ' . $port);
         }
 
-        $errno = 0;
-        $errstr = '';
-        $socket = @stream_socket_client(
-            'tcp://' . $host . ':' . $port,
-            $errno,
-            $errstr,
-            8.0,
-            STREAM_CLIENT_CONNECT
-        );
-
-        if (!is_resource($socket)) {
-            $detail = trim($errstr) !== '' ? ': ' . trim($errstr) : '';
-            $hint = $errno === 111 || stripos($errstr, 'refused') !== false
-                ? ' TCP connection was refused before RouterOS SSH authentication. The application is using the configured SSH port; verify that this cPanel server source IP is permitted to reach the RouterOS SSH service.'
-                : '';
-            throw new RuntimeException(
-                'Unable to connect to MikroTik RouterOS SSH (' . $host . ':' . $port . ')' . $detail . '.' . $hint
-            );
-        }
-
         try {
-            // Reuse the exact TCP socket that passed the connectivity test.
-            // phpseclib supports a pre-connected stream resource as SSH2 host,
-            // which avoids opening a second TCP connection to the router.
-            $this->ssh = new SSH2($socket, 22, 8);
-            $this->ssh->setTimeout(8);
+            // IMPORTANT: phpseclib must receive the RouterOS host and the
+            // configured SSH port directly. Do not pass a pre-connected PHP
+            // stream resource here: SSH2's constructor expects the host and
+            // internally establishes the SSH transport on that port.
+            $this->ssh = new SSH2($host, $port, $timeout);
+            $this->ssh->setTimeout($timeout);
 
             if (!$this->ssh->login($username, $password)) {
                 throw new RuntimeException(
-                    'MikroTik SSH authentication failed after TCP connection to ' . $host . ':' . $port . '.'
+                    'MikroTik RouterOS SSH authentication failed for user "' . $username . '" at ' . $host . ':' . $port . '.'
                 );
             }
 
             $this->selectors = [];
         } catch (\Throwable $e) {
-            if (is_resource($socket)) {
-                try {
-                    fclose($socket);
-                } catch (\Throwable $ignore) {
-                }
-            }
+            $message = $e->getMessage();
             $this->disconnect();
+
+            if (stripos($message, 'connection refused') !== false || stripos($message, 'actively refused') !== false) {
+                throw new RuntimeException(
+                    'Unable to connect to MikroTik RouterOS SSH (' . $host . ':' . $port . '): Connection refused. '
+                    . 'RouterOS SSH connection could not be established on the configured SSH port.'
+                , 0, $e);
+            }
+
             if ($e instanceof RuntimeException) {
                 throw $e;
             }
+
             throw new RuntimeException(
-                'Unable to connect to MikroTik RouterOS SSH (' . $host . ':' . $port . '): ' . $e->getMessage(),
+                'Unable to connect to MikroTik RouterOS SSH (' . $host . ':' . $port . '): ' . $message,
                 0,
                 $e
             );
@@ -183,12 +171,7 @@ final class RouterOsSshClient implements MikrotikClientInterface
         $rows = [];
         foreach (preg_split('/\R/', $output) ?: [] as $line) {
             $line = trim($line);
-            if (
-                $line === '' ||
-                str_starts_with($line, 'Flags:') ||
-                str_starts_with($line, 'Columns:') ||
-                str_starts_with($line, ';;;')
-            ) {
+            if ($line === '' || str_starts_with($line, 'Flags:') || str_starts_with($line, 'Columns:') || str_starts_with($line, ';;;')) {
                 continue;
             }
 
@@ -199,12 +182,7 @@ final class RouterOsSshClient implements MikrotikClientInterface
             }
 
             $fields = [];
-            preg_match_all(
-                '/([A-Za-z0-9_.-]+)=("(?:\\.|[^"])*"|\S+)/',
-                $line,
-                $matches,
-                PREG_SET_ORDER
-            );
+            preg_match_all('/([A-Za-z0-9_.-]+)=("(?:\\.|[^"])*"|\S+)/', $line, $matches, PREG_SET_ORDER);
             foreach ($matches as $match) {
                 $fields[$match[1]] = $this->unquote($match[2]);
             }
@@ -231,10 +209,7 @@ final class RouterOsSshClient implements MikrotikClientInterface
     {
         foreach (preg_split('/\R/', $output) ?: [] as $line) {
             $line = trim($line);
-            if (
-                $line !== '' &&
-                preg_match('/^(failure|input does not match|expected end of command|bad command|syntax error)/i', $line)
-            ) {
+            if ($line !== '' && preg_match('/^(failure|input does not match|expected end of command|bad command|syntax error)/i', $line)) {
                 throw new RuntimeException('RouterOS SSH command failed: ' . $line);
             }
         }
@@ -242,10 +217,7 @@ final class RouterOsSshClient implements MikrotikClientInterface
 
     private function quote(string $value): string
     {
-        if (
-            in_array(strtolower($value), ['yes', 'no'], true) ||
-            preg_match('/^-?\d+(?:\.\d+)?$/', $value)
-        ) {
+        if (in_array(strtolower($value), ['yes', 'no'], true) || preg_match('/^-?\d+(?:\.\d+)?$/', $value)) {
             return $value;
         }
         return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $value) . '"';
