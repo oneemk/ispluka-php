@@ -46,12 +46,23 @@ The `feat/mikrotik-reconciliation` branch contains the current MikroTik/PPPoE en
 - Manual Enable / Disable / Suspend API
 - `suspend` PPP profile policy with Temporary Disable fallback when the profile does not exist
 - Previous-profile tracking for safe restore
-- Native RouterOS API client with no Composer dependency
+- Native RouterOS API client
+- RouterOS SSH client using phpseclib
+- Per-router connection method: RouterOS API or SSH
 - Shared-hosting-safe network job worker
 - Automatic overdue enforcement queue
 - Tenant-scoped MikroTik router management and RouterOS connection testing
 
 These features are being hardened before production deployment.
+
+## MikroTik connection methods
+
+Every router can use one of two management/login methods:
+
+1. **RouterOS API** — configure the API port (and optional SSL API port).
+2. **SSH** — configure the SSH port, normally `22` or the router's custom SSH port.
+
+The selected method is stored per router and is used consistently for live status checks, router tests, PPPoE provisioning, suspension/restore, and other RouterOS automation. Router credentials remain encrypted at rest.
 
 ## Architecture contract
 
