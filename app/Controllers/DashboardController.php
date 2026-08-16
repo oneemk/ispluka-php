@@ -7,6 +7,7 @@ namespace Ispluka\Controllers;
 use Ispluka\Core\Auth\AuthManager;
 use Ispluka\Core\Dashboard\DashboardService;
 use Ispluka\Core\Http\Response;
+use Ispluka\Core\Security\Csrf;
 use RuntimeException;
 
 final class DashboardController
@@ -14,6 +15,7 @@ final class DashboardController
     public function __construct(
         private readonly DashboardService $dashboard,
         private readonly AuthManager $auth,
+        private readonly Csrf $csrf,
     ) {}
 
     public function page(): Response
@@ -34,6 +36,7 @@ final class DashboardController
             'role' => $role,
             'userId' => $userId,
             'tenantName' => $tenantName,
+            'csrfToken' => $this->csrf->token(),
         ], EXTR_SKIP);
 
         ob_start();
