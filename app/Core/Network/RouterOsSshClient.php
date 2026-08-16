@@ -26,34 +26,47 @@ final class RouterOsSshClient implements MikrotikClientInterface
             throw new RuntimeException('Invalid RouterOS SSH port: ' . $port);
         }
 
-        // Fail early with the real TCP error. This keeps authentication and
-        // RouterOS command errors separate from network reachability errors.
         $errno = 0;
         $errstr = '';
         $socket = @stream_socket_client(
             'tcp://' . $host . ':' . $port,
             $errno,
             $errstr,
-            5.0,
+            8.0,
             STREAM_CLIENT_CONNECT
         );
+
         if (!is_resource($socket)) {
             $detail = trim($errstr) !== '' ? ': ' . trim($errstr) : '';
             $hint = $errno === 111 || stripos($errstr, 'refused') !== false
-                ? ' TCP connection was refused before RouterOS SSH authentication. Verify that the RouterOS SSH service is enabled on this port and that the cPanel server IP is allowed through any upstream firewall/NAT.'
+                ? ' TCP connection was refused before RouterOS SSH authentication. The application is using the configured SSH port; verify that this cPanel server source IP is permitted to reach the RouterOS SSH service.'
                 : '';
-            throw new RuntimeException('Unable to connect to MikroTik RouterOS SSH (' . $host . ':' . $port . ')' . $detail . '.' . $hint);
+            throw new RuntimeException(
+                'Unable to connect to MikroTik RouterOS SSH (' . $host . ':' . $port . ')' . $detail . '.' . $hint
+            );
         }
-        fclose($socket);
 
         try {
-            $this->ssh = new SSH2($host, $port, 8);
+            // Reuse the exact TCP socket that passed the connectivity test.
+            // phpseclib supports a pre-connected stream resource as SSH2 host,
+            // which avoids opening a second TCP connection to the router.
+            $this->ssh = new SSH2($socket, 22, 8);
             $this->ssh->setTimeout(8);
+
             if (!$this->ssh->login($username, $password)) {
-                throw new RuntimeException('MikroTik SSH authentication failed.');
+                throw new RuntimeException(
+                    'MikroTik SSH authentication failed after TCP connection to ' . $host . ':' . $port . '.'
+                );
             }
+
             $this->selectors = [];
         } catch (\Throwable $e) {
+            if (is_resource($socket)) {
+                try {
+                    fclose($socket);
+                } catch (\Throwable $ignore) {
+                }
+            }
             $this->disconnect();
             if ($e instanceof RuntimeException) {
                 throw $e;
