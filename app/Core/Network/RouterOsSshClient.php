@@ -106,10 +106,8 @@ final class RouterOsSshClient implements MikrotikClientInterface
         }
 
         if ($action === 'print') {
-            // RouterOS SSH exec is most reliable with the plain print command.
-            // In particular, avoid appending `detail` or `without-paging` here.
-            // `detail` is valid in the interactive RouterOS CLI, but some SSH
-            // exec contexts reject the combined form with "expected end of command".
+            // Keep SSH exec commands compatible with RouterOS. Do not append
+            // interactive-only formatting parameters such as detail/without-paging.
             return $base . ($query !== null ? ' where ' . $query : '');
         }
 
@@ -150,31 +148,54 @@ final class RouterOsSshClient implements MikrotikClientInterface
     private function parseRows(string $output): array
     {
         $rows = [];
+        $current = [];
+
         foreach (preg_split('/\R/', $output) ?: [] as $line) {
             $line = trim($line);
             if ($line === '' || str_starts_with($line, 'Flags:') || str_starts_with($line, 'Columns:') || str_starts_with($line, ';;;')) {
                 continue;
             }
+
             $index = null;
             if (preg_match('/^(\*?\d+)\s+(.+)$/', $line, $m)) {
                 $index = $m[1];
                 $line = $m[2];
             }
+
             $fields = [];
+            // RouterOS SSH may return either key=value output or the human CLI
+            // form key: value. Support both so health/resource data is preserved.
             preg_match_all('/([A-Za-z0-9_.-]+)=("(?:\\.|[^"])*"|\S+)/', $line, $matches, PREG_SET_ORDER);
             foreach ($matches as $match) {
                 $fields[$match[1]] = $this->unquote($match[2]);
             }
+
+            if ($fields === [] && preg_match('/^([A-Za-z0-9_.-]+):\s*(.*)$/', $line, $match)) {
+                $fields[$match[1]] = trim($match[2]);
+            }
+
             if ($fields !== []) {
                 if ($index !== null) {
                     $fields['.id'] = $index;
                 }
-                $rows[] = $fields;
+                // Colon-form RouterOS output is commonly one property per line.
+                // Merge those properties into one logical record.
+                $current = array_merge($current, $fields);
+                if ($index !== null || count($current) > 1 && preg_match('/\s+/', $line) && str_contains($line, '=')) {
+                    $rows[] = $current;
+                    $current = [];
+                }
             }
         }
+
+        if ($current !== []) {
+            $rows[] = $current;
+        }
+
         if ($rows !== []) {
             return $rows;
         }
+
         $fallback = [];
         if (preg_match('/\bname\s*[=:]\s*"?([^"\r\n]+)"?/i', $output, $m)) {
             $fallback['name'] = trim($m[1]);
