@@ -30,10 +30,6 @@ final class RouterOsSshClient implements MikrotikClientInterface
         }
 
         try {
-            // IMPORTANT: phpseclib must receive the RouterOS host and the
-            // configured SSH port directly. Do not pass a pre-connected PHP
-            // stream resource here: SSH2's constructor expects the host and
-            // internally establishes the SSH transport on that port.
             $this->ssh = new SSH2($host, $port, $timeout);
             $this->ssh->setTimeout($timeout);
 
@@ -51,8 +47,10 @@ final class RouterOsSshClient implements MikrotikClientInterface
             if (stripos($message, 'connection refused') !== false || stripos($message, 'actively refused') !== false) {
                 throw new RuntimeException(
                     'Unable to connect to MikroTik RouterOS SSH (' . $host . ':' . $port . '): Connection refused. '
-                    . 'RouterOS SSH connection could not be established on the configured SSH port.'
-                , 0, $e);
+                    . 'RouterOS SSH connection could not be established on the configured SSH port.',
+                    0,
+                    $e
+                );
             }
 
             if ($e instanceof RuntimeException) {
@@ -76,7 +74,8 @@ final class RouterOsSshClient implements MikrotikClientInterface
             throw new RuntimeException('Invalid RouterOS command.');
         }
 
-        $output = $this->ssh->exec($this->buildCommand($command, $arguments));
+        $built = $this->buildCommand($command, $arguments);
+        $output = $this->ssh->exec($built);
         if ($output === false) {
             throw new RuntimeException('MikroTik SSH command failed.');
         }
@@ -128,7 +127,11 @@ final class RouterOsSshClient implements MikrotikClientInterface
         }
 
         if ($action === 'print') {
-            return $base . ' detail without-paging' . ($query !== null ? ' where ' . $query : '');
+            // RouterOS menus do not all accept the `detail` print modifier.
+            // In particular `/system identity print detail` fails with
+            // "expected end of command". Keep SSH discovery commands portable
+            // by using only the universally supported paging modifier.
+            return $base . ' without-paging' . ($query !== null ? ' where ' . $query : '');
         }
 
         if (in_array($action, ['set', 'disable', 'enable'], true)) {
