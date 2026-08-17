@@ -46,7 +46,10 @@ final class RouterService
         try{
             $this->client->connect($this->routerConfig($router));
             $identity=$this->client->command('/system/identity/print');
-            $resource=$this->client->command('/system/resource/print',['detail'=>true]);
+            // Keep the resource command transport-neutral. The API client can
+            // apply API-specific formatting internally, while the SSH client
+            // executes the plain RouterOS CLI command.
+            $resource=$this->client->command('/system/resource/print');
             $health=$this->normalizeHealth($resource[0]??[]);
             $this->routers->markConnection($actualTenantId,$routerId,true);
             return ['ok'=>true,'status'=>'online','connection_method'=>$method,'host'=>(string)$router['host'],'port'=>$targetPort,'identity'=>$identity[0]['name']??null,'health'=>$health];
