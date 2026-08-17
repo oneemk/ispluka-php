@@ -6,9 +6,7 @@ $trend = $snapshot['collectionTrend'] ?? [];
 $money = static fn(float|int $v): string => '৳' . number_format((float) $v, 0);
 $number = static fn(float|int $v): string => number_format((float) $v);
 $maxTrend = 1.0;
-foreach ($trend as $row) {
-    $maxTrend = max($maxTrend, (float) ($row['amount'] ?? 0));
-}
+foreach ($trend as $row) $maxTrend = max($maxTrend, (float) ($row['amount'] ?? 0));
 $csrfToken = htmlspecialchars((string) ($csrfToken ?? $csrf ?? ''), ENT_QUOTES, 'UTF-8');
 ?>
 <!doctype html>
@@ -17,8 +15,8 @@ $csrfToken = htmlspecialchars((string) ($csrfToken ?? $csrf ?? ''), ENT_QUOTES, 
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
     <meta name="theme-color" content="#08111f">
-    <link rel="stylesheet" href="/assets/css/app.css">
-    <link rel="stylesheet" href="/assets/css/dashboard.css">
+    <link rel="stylesheet" href="/assets/css/app.css?v=4">
+    <link rel="stylesheet" href="/assets/css/dashboard.css?v=4">
     <title>ISPLUKA Dashboard</title>
 </head>
 <body class="dashboard-page">
@@ -30,8 +28,8 @@ $csrfToken = htmlspecialchars((string) ($csrfToken ?? $csrf ?? ''), ENT_QUOTES, 
         <div class="header-tools">
             <label class="global-search">⌕<input type="search" data-search placeholder="Search customer, phone or code…" aria-label="Search customer"></label>
             <div class="language-switch" role="group" aria-label="Language">
-                <button type="button" data-language="en" class="language-btn active">EN</button>
-                <button type="button" data-language="bn" class="language-btn">বাংলা</button>
+                <button type="button" data-language="en" class="language-btn active" aria-pressed="true">EN</button>
+                <button type="button" data-language="bn" class="language-btn" aria-pressed="false">বাংলা</button>
             </div>
             <a class="header-icon" href="/customers" aria-label="Customers">♙</a>
             <form method="post" action="/logout" class="logout-form">
@@ -44,25 +42,25 @@ $csrfToken = htmlspecialchars((string) ($csrfToken ?? $csrf ?? ''), ENT_QUOTES, 
 
 <aside class="sidebar" data-sidebar>
 <nav class="nav dashboard-nav">
-    <a class="active" href="/"><span>⌂</span><span data-i18n="dashboard">Dashboard</span></a>
+    <a class="active" href="/"><span data-i18n="dashboard">Dashboard</span></a>
     <div class="nav-section" data-i18n="operations">Operations</div>
-    <a href="/collection"><span>৳</span><span data-i18n="collection">Collection</span></a>
-    <a href="/reports/collection"><span>▤</span><span data-i18n="collection_report">Collection Report</span></a>
-    <a href="/customers/create"><span>＋</span><span data-i18n="add_customer">Add Customer</span></a>
-    <a href="/customers"><span>⌕</span><span data-i18n="search_customer">Search Customer</span></a>
+    <a href="/collection"><span data-i18n="collection">Collection</span></a>
+    <a href="/reports/collection"><span data-i18n="collection_report">Collection Report</span></a>
+    <a href="/customers/create"><span data-i18n="add_customer">Add Customer</span></a>
+    <a href="/customers"><span data-i18n="search_customer">Search Customer</span></a>
     <div class="nav-section" data-i18n="network">Network</div>
-    <a href="/networking/mikrotik/routers"><span>⌁</span><span data-i18n="mikrotik_routers">MikroTik Routers</span></a>
-    <a href="/networking/customer"><span>⌁</span><span data-i18n="customer_networking">Customer Networking</span></a>
-    <a href="/networking/mikrotik/enforcement-audit"><span>✓</span><span data-i18n="network_audit">Network Audit</span></a>
+    <a href="/networking/mikrotik/routers"><span data-i18n="mikrotik_routers">MikroTik Routers</span></a>
+    <a href="/networking/customer"><span data-i18n="customer_networking">Customer Networking</span></a>
+    <a href="/networking/mikrotik/enforcement-audit"><span data-i18n="network_audit">Network Audit</span></a>
     <div class="nav-section" data-i18n="management">Management</div>
-    <a href="/subscription"><span>◉</span><span data-i18n="subscription">Subscription</span></a>
+    <a href="/subscription"><span data-i18n="subscription">Subscription</span></a>
     <?php if (($role ?? '') === 'master_admin'): ?>
-        <a href="/admin/tenants"><span>▣</span><span data-i18n="tenants_admins">Tenants / Admins</span></a>
-        <a href="/admin/subscriptions"><span>◉</span><span data-i18n="platform_billing">Platform Billing</span></a>
+        <a href="/admin/tenants"><span data-i18n="tenants_admins">Tenants / Admins</span></a>
+        <a href="/admin/subscriptions"><span data-i18n="platform_billing">Platform Billing</span></a>
     <?php endif; ?>
     <form method="post" action="/logout" class="sidebar-logout-form">
         <input type="hidden" name="_csrf" value="<?=$csrfToken?>">
-        <button type="submit"><span>↪</span><span data-i18n="logout">Logout</span></button>
+        <button type="submit"><span data-i18n="logout">Logout</span></button>
     </form>
 </nav>
 </aside>
@@ -79,10 +77,10 @@ $csrfToken = htmlspecialchars((string) ($csrfToken ?? $csrf ?? ''), ENT_QUOTES, 
     </section>
 
     <section class="shortcut-grid shortcut-grid-focus">
-        <a class="shortcut shortcut-primary" href="/collection"><span class="shortcut-icon">৳</span><span><strong data-i18n="collection">Collection</strong><small data-i18n="collect_payment">Collect customer payment</small></span><b>→</b></a>
-        <a class="shortcut" href="/reports/collection"><span class="shortcut-icon">▤</span><span><strong data-i18n="collection_report">Collection Report</strong><small data-i18n="collection_history">View collection history</small></span><b>→</b></a>
-        <a class="shortcut" href="/customers/create"><span class="shortcut-icon">＋</span><span><strong data-i18n="add_customer">Add Customer</strong><small data-i18n="create_subscriber">Create a new subscriber</small></span><b>→</b></a>
-        <a class="shortcut" href="/customers"><span class="shortcut-icon">⌕</span><span><strong data-i18n="search_customer">Search Customer</strong><small data-i18n="find_customer">Find by name, phone or code</small></span><b>→</b></a>
+        <a class="shortcut shortcut-primary" href="/collection"><span><strong data-i18n="collection">Collection</strong><small data-i18n="collect_payment">Collect customer payment</small></span><b>Open&nbsp;→</b></a>
+        <a class="shortcut" href="/reports/collection"><span><strong data-i18n="collection_report">Collection Report</strong><small data-i18n="collection_history">View collection history</small></span><b>Open&nbsp;→</b></a>
+        <a class="shortcut" href="/customers/create"><span><strong data-i18n="add_customer">Add Customer</strong><small data-i18n="create_subscriber">Create a new subscriber</small></span><b>Open&nbsp;→</b></a>
+        <a class="shortcut" href="/customers"><span><strong data-i18n="search_customer">Search Customer</strong><small data-i18n="find_customer">Find by name, phone or code</small></span><b>Open&nbsp;→</b></a>
     </section>
 
     <section class="stats-grid">
@@ -137,6 +135,6 @@ $csrfToken = htmlspecialchars((string) ($csrfToken ?? $csrf ?? ''), ENT_QUOTES, 
 </div>
 </main>
 </div>
-<script src="/assets/js/app.js" defer></script>
+<script src="/assets/js/app.js?v=4" defer></script>
 </body>
 </html>
