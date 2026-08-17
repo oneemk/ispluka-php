@@ -90,6 +90,8 @@ return static function (
     $router->get('/networking/mikrotik/routers', [$mikrotikRouters, 'page'], [$requireAuth, $routerView]);
     $router->get('/api/networking/mikrotik/routers', [$mikrotikRouters, 'index'], [$requireAuth, $routerView]);
     $router->get('/api/networking/mikrotik/routers/status', [$mikrotikRouters, 'status'], [$requireAuth, $routerView]);
+    $router->get('/api/networking/mikrotik/pppoe/active', [$mikrotikRouters, 'activePppoe'], [$requireAuth, $routerView]);
+    $router->post('/api/networking/mikrotik/pppoe/disconnect', [$mikrotikRouters, 'disconnectPppoe'], [$requireAuth, $routerManage, $csrfMiddleware]);
     $router->post('/api/networking/mikrotik/routers', [$mikrotikRouters, 'store'], [$requireAuth, $routerManage, $csrfMiddleware]);
     $router->post('/api/networking/mikrotik/routers/update', [$mikrotikRouters, 'update'], [$requireAuth, $routerManage, $csrfMiddleware]);
     $router->post('/api/networking/mikrotik/routers/test', [$mikrotikRouters, 'test'], [$requireAuth, $routerManage, $csrfMiddleware]);
