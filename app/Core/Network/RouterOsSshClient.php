@@ -81,9 +81,9 @@ final class RouterOsSshClient implements MikrotikClientInterface
             }
         }
 
-        // Use RouterOS terse output for all print commands. It is stable and machine-readable,
-        // unlike the human-oriented table output that varies with terminal width/columns.
-        if ($action === 'print') return $base . ' terse' . ($query !== null ? ' where ' . $query : '');
+        // RouterOS SSH does not accept the API-style "terse" suffix reliably on all RouterOS 7 builds.
+        // Keep print commands in native RouterOS terminal syntax and parse both table and key:value output.
+        if ($action === 'print') return $base . ($query !== null ? ' where ' . $query : '');
 
         if (in_array($action, ['set', 'disable', 'enable', 'remove'], true)) {
             $selector = $this->selectors[$resource] ?? null;
