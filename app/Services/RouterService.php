@@ -46,9 +46,6 @@ final class RouterService
         try{
             $this->client->connect($this->routerConfig($router));
             $identity=$this->client->command('/system/identity/print');
-            // Keep the resource command transport-neutral. The API client can
-            // apply API-specific formatting internally, while the SSH client
-            // executes the plain RouterOS CLI command.
             $resource=$this->client->command('/system/resource/print');
             $health=$this->normalizeHealth($resource[0]??[]);
             $this->routers->markConnection($actualTenantId,$routerId,true);
@@ -56,6 +53,41 @@ final class RouterService
         }
         catch(\Throwable $e){$message=trim($e->getMessage())!==''?$e->getMessage():'Unknown MikroTik connection error.';$this->routers->markConnection($actualTenantId,$routerId,false,$message);return ['ok'=>false,'status'=>'offline','connection_method'=>$method,'host'=>(string)$router['host'],'port'=>$targetPort,'error'=>$message];}
         finally{try{$this->client->disconnect();}catch(\Throwable $ignore){}}
+    }
+
+    public function activePppoe(int $tenantId,int $routerId,?string $username=null): array
+    {
+        $router=$this->routers->find($tenantId,$routerId);if($router===null)throw new RuntimeException('Router not found.');
+        $username=trim((string)$username);
+        try {
+            $this->client->connect($this->routerConfig($router));
+            $rows=$this->client->command('/ppp/active/print',$username!==''?['?name'=>$username]:[]);
+            $this->routers->markConnection($tenantId,$routerId,true);
+            return array_map(static function(array $row): array {
+                return ['id'=>$row['.id']??null,'name'=>$row['name']??null,'service'=>$row['service']??null,'caller_id'=>$row['caller-id']??$row['caller_id']??null,'address'=>$row['address']??null,'uptime'=>$row['uptime']??null,'encoding'=>$row['encoding']??null,'session_id'=>$row['session-id']??$row['session_id']??null];
+            },$rows);
+        } catch(\Throwable $e) {
+            $this->routers->markConnection($tenantId,$routerId,false,$e->getMessage());
+            throw new RuntimeException('Unable to read active PPPoE sessions.',0,$e);
+        } finally { try{$this->client->disconnect();}catch(\Throwable $ignore){} }
+    }
+
+    public function disconnectPppoe(int $tenantId,int $routerId,string $username): array
+    {
+        $username=trim($username);if($username==='')throw new InvalidArgumentException('PPPoE username is required.');
+        $router=$this->routers->find($tenantId,$routerId);if($router===null)throw new RuntimeException('Router not found.');
+        try {
+            $this->client->connect($this->routerConfig($router));
+            $rows=$this->client->command('/ppp/active/print',['?name'=>$username]);
+            if($rows===[])throw new RuntimeException('No active PPPoE session found for this username.');
+            $removed=0;
+            foreach($rows as $row){if(!empty($row['.id'])){$this->client->command('/ppp/active/remove',['.id'=>$row['.id']]);$removed++;}}
+            $this->routers->markConnection($tenantId,$routerId,true);
+            return ['ok'=>true,'username'=>$username,'removed'=>$removed];
+        } catch(\Throwable $e) {
+            $this->routers->markConnection($tenantId,$routerId,false,$e->getMessage());
+            throw new RuntimeException('Unable to disconnect PPPoE session.',0,$e);
+        } finally { try{$this->client->disconnect();}catch(\Throwable $ignore){} }
     }
 
     public function provisionPppoe(int $tenantId,int $routerId,string $username,string $password,string $profile):void{$this->provisionUser($tenantId,$routerId,'/ppp/secret/print','/ppp/secret/add','/ppp/secret/set',$username,['name'=>$username,'password'=>$password,'service'=>'pppoe','profile'=>$profile]);}
@@ -89,20 +121,7 @@ final class RouterService
     private function normalizeHealth(array $resource): array
     {
         $number = static function(mixed $value): ?float { if($value===null||$value==='')return null; if(!is_numeric($value))return null; return (float)$value; };
-        $memoryTotal=$number($resource['total-memory']??$resource['total_memory']??null);
-        $memoryFree=$number($resource['free-memory']??$resource['free_memory']??null);
-        $memoryUsed=($memoryTotal!==null&&$memoryFree!==null)?max(0,$memoryTotal-$memoryFree):null;
-        $memoryPct=($memoryTotal!==null&&$memoryTotal>0&&$memoryUsed!==null)?round(($memoryUsed/$memoryTotal)*100,1):null;
-        return [
-            'uptime'=>(string)($resource['uptime']??''),
-            'version'=>(string)($resource['version']??''),
-            'board_name'=>(string)($resource['board-name']??$resource['board_name']??''),
-            'architecture'=>(string)($resource['architecture-name']??$resource['architecture_name']??''),
-            'cpu_load'=>$number($resource['cpu-load']??$resource['cpu_load']??null),
-            'total_memory'=>$memoryTotal,
-            'free_memory'=>$memoryFree,
-            'used_memory'=>$memoryUsed,
-            'memory_used_percent'=>$memoryPct,
-        ];
+        $memoryTotal=$number($resource['total-memory']??$resource['total_memory']??null);$memoryFree=$number($resource['free-memory']??$resource['free_memory']??null);$memoryUsed=($memoryTotal!==null&&$memoryFree!==null)?max(0,$memoryTotal-$memoryFree):null;$memoryPct=($memoryTotal!==null&&$memoryTotal>0&&$memoryUsed!==null)?round(($memoryUsed/$memoryTotal)*100,1):null;
+        return ['uptime'=>(string)($resource['uptime']??''),'version'=>(string)($resource['version']??''),'board_name'=>(string)($resource['board-name']??$resource['board_name']??''),'architecture'=>(string)($resource['architecture-name']??$resource['architecture_name']??''),'cpu_load'=>$number($resource['cpu-load']??$resource['cpu_load']??null),'total_memory'=>$memoryTotal,'free_memory'=>$memoryFree,'used_memory'=>$memoryUsed,'memory_used_percent'=>$memoryPct];
     }
 }
