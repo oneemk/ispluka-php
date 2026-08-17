@@ -28,6 +28,9 @@ final class DashboardService
             'monthly_collected' => (float)$scalar($pdo,"SELECT COALESCE(SUM(amount),0) FROM payments WHERE {$scope} AND status='completed' AND paid_at>=date_trunc('month',CURRENT_TIMESTAMP)",$params),
             'today_collected' => (float)$scalar($pdo,"SELECT COALESCE(SUM(amount),0) FROM payments WHERE {$scope} AND status='completed' AND paid_at>=CURRENT_DATE",$params),
             'new_customers_today' => (int)$scalar($pdo,"SELECT COUNT(*) FROM customers WHERE {$scope} AND deleted_at IS NULL AND created_at>=CURRENT_DATE",$params),
+            'routers_total' => (int)$scalar($pdo,"SELECT COUNT(*) FROM routers WHERE {$scope}",$params),
+            'routers_online' => (int)$scalar($pdo,"SELECT COUNT(*) FROM routers WHERE {$scope} AND status='online'",$params),
+            'routers_offline' => (int)$scalar($pdo,"SELECT COUNT(*) FROM routers WHERE {$scope} AND status='offline'",$params),
         ];
 
         $joinScope = $tenantId === null ? '' : ' AND p.tenant_id=:tenant_id';
