@@ -54,7 +54,7 @@ try {
     echo (($rows[0]['name'] ?? '(unknown)')) . "\n";
 
     echo "Resource: ";
-    $resource = $client->command('/system/resource/print');
+    $resource = $client->command('/system/resource/print', ['detail' => true]);
     echo json_encode($resource[0] ?? [], JSON_UNESCAPED_SLASHES) . "\n";
 
     echo "RESULT: MikroTik {$method} connection is working.\n";
