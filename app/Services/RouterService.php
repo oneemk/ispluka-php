@@ -43,7 +43,14 @@ final class RouterService
         $router=$tenantId>0?$this->routers->find($tenantId,$routerId):$this->routers->findAny($routerId);if($router===null)throw new RuntimeException('Router not found.');
         $actualTenantId=(int)$router['tenant_id'];$method=strtolower((string)($router['connection_method']??'api'));
         $targetPort=$method==='ssh'?(int)($router['ssh_port']??22):(!empty($router['api_ssl_port'])?(int)$router['api_ssl_port']:(int)($router['api_port']??8728));
-        try{$this->client->connect($this->routerConfig($router));$identity=$this->client->command('/system/identity/print');$this->routers->markConnection($actualTenantId,$routerId,true);return ['ok'=>true,'status'=>'online','connection_method'=>$method,'host'=>(string)$router['host'],'port'=>$targetPort,'identity'=>$identity[0]['name']??null];}
+        try{
+            $this->client->connect($this->routerConfig($router));
+            $identity=$this->client->command('/system/identity/print');
+            $resource=$this->client->command('/system/resource/print',['detail'=>true]);
+            $health=$this->normalizeHealth($resource[0]??[]);
+            $this->routers->markConnection($actualTenantId,$routerId,true);
+            return ['ok'=>true,'status'=>'online','connection_method'=>$method,'host'=>(string)$router['host'],'port'=>$targetPort,'identity'=>$identity[0]['name']??null,'health'=>$health];
+        }
         catch(\Throwable $e){$message=trim($e->getMessage())!==''?$e->getMessage():'Unknown MikroTik connection error.';$this->routers->markConnection($actualTenantId,$routerId,false,$message);return ['ok'=>false,'status'=>'offline','connection_method'=>$method,'host'=>(string)$router['host'],'port'=>$targetPort,'error'=>$message];}
         finally{try{$this->client->disconnect();}catch(\Throwable $ignore){}}
     }
@@ -74,5 +81,25 @@ final class RouterService
         if($method==='ssh')return ['host'=>(string)$router['host'],'connection_method'=>'ssh','ssh_port'=>(int)($router['ssh_port']??22),'username'=>(string)$router['username'],'password'=>$this->secrets->decrypt((string)$router['encrypted_password'])];
         $port=!empty($router['api_ssl_port'])?(int)$router['api_ssl_port']:(int)($router['api_port']??8728);if($port<1||$port>65535)throw new RuntimeException('Invalid RouterOS API port.');
         return ['host'=>(string)$router['host'],'connection_method'=>'api','api_port'=>$port,'username'=>(string)$router['username'],'password'=>$this->secrets->decrypt((string)$router['encrypted_password']),'verify_ssl'=>(bool)($router['verify_ssl']??true),'api_ssl'=>!empty($router['api_ssl_port'])];
+    }
+
+    private function normalizeHealth(array $resource): array
+    {
+        $number = static function(mixed $value): ?float { if($value===null||$value==='')return null; if(!is_numeric($value))return null; return (float)$value; };
+        $memoryTotal=$number($resource['total-memory']??$resource['total_memory']??null);
+        $memoryFree=$number($resource['free-memory']??$resource['free_memory']??null);
+        $memoryUsed=($memoryTotal!==null&&$memoryFree!==null)?max(0,$memoryTotal-$memoryFree):null;
+        $memoryPct=($memoryTotal!==null&&$memoryTotal>0&&$memoryUsed!==null)?round(($memoryUsed/$memoryTotal)*100,1):null;
+        return [
+            'uptime'=>(string)($resource['uptime']??''),
+            'version'=>(string)($resource['version']??''),
+            'board_name'=>(string)($resource['board-name']??$resource['board_name']??''),
+            'architecture'=>(string)($resource['architecture-name']??$resource['architecture_name']??''),
+            'cpu_load'=>$number($resource['cpu-load']??$resource['cpu_load']??null),
+            'total_memory'=>$memoryTotal,
+            'free_memory'=>$memoryFree,
+            'used_memory'=>$memoryUsed,
+            'memory_used_percent'=>$memoryPct,
+        ];
     }
 }
