@@ -127,11 +127,9 @@ final class RouterOsSshClient implements MikrotikClientInterface
         }
 
         if ($action === 'print') {
-            // RouterOS menus do not all accept the `detail` print modifier.
-            // In particular `/system identity print detail` fails with
-            // "expected end of command". Keep SSH discovery commands portable
-            // by using only the universally supported paging modifier.
-            return $base . ' without-paging' . ($query !== null ? ' where ' . $query : '');
+            $detail = !empty($arguments['detail']);
+            $line = $base . ($detail ? ' detail' : '') . ' without-paging';
+            return $line . ($query !== null ? ' where ' . $query : '');
         }
 
         if (in_array($action, ['set', 'disable', 'enable'], true)) {
@@ -146,7 +144,7 @@ final class RouterOsSshClient implements MikrotikClientInterface
             $line = $base . ' [find where ' . $selector . ']';
             foreach ($arguments as $key => $value) {
                 $key = (string)$key;
-                if ($value === null || $key === '.id' || str_starts_with($key, '?')) {
+                if ($value === null || $key === '.id' || $key === 'detail' || str_starts_with($key, '?')) {
                     continue;
                 }
                 $line .= ' ' . $key . '=' . $this->quote((string)$value);
@@ -158,7 +156,7 @@ final class RouterOsSshClient implements MikrotikClientInterface
             $line = $base;
             foreach ($arguments as $key => $value) {
                 $key = (string)$key;
-                if ($value === null || $key === '.id' || str_starts_with($key, '?')) {
+                if ($value === null || $key === '.id' || $key === 'detail' || str_starts_with($key, '?')) {
                     continue;
                 }
                 $line .= ' ' . $key . '=' . $this->quote((string)$value);
