@@ -128,7 +128,13 @@ final class RouterOsSshClient implements MikrotikClientInterface
 
         if ($action === 'print') {
             $detail = !empty($arguments['detail']);
-            $line = $base . ($detail ? ' detail' : '') . ' without-paging';
+
+            // RouterOS SSH CLI compatibility: do not append `without-paging`.
+            // Some RouterOS versions accept the command through the interactive
+            // terminal but reject it through SSH exec with:
+            // "expected end of command (line 1 column 24)".
+            // Keep the command to the portable RouterOS CLI form.
+            $line = $base . ($detail ? ' detail' : '');
             return $line . ($query !== null ? ' where ' . $query : '');
         }
 
