@@ -15,7 +15,6 @@ final class RouterOsSshClient implements MikrotikClientInterface
     public function connect(array $router): void
     {
         $this->disconnect();
-
         $host = trim((string)($router['host'] ?? ''));
         $port = (int)($router['ssh_port'] ?? 22);
         $username = (string)($router['username'] ?? '');
@@ -32,36 +31,20 @@ final class RouterOsSshClient implements MikrotikClientInterface
         try {
             $this->ssh = new SSH2($host, $port, $timeout);
             $this->ssh->setTimeout($timeout);
-
             if (!$this->ssh->login($username, $password)) {
-                throw new RuntimeException(
-                    'MikroTik RouterOS SSH authentication failed for user "' . $username . '" at ' . $host . ':' . $port . '.'
-                );
+                throw new RuntimeException('MikroTik RouterOS SSH authentication failed for user "' . $username . '" at ' . $host . ':' . $port . '.');
             }
-
             $this->selectors = [];
         } catch (\Throwable $e) {
             $message = $e->getMessage();
             $this->disconnect();
-
             if (stripos($message, 'connection refused') !== false || stripos($message, 'actively refused') !== false) {
-                throw new RuntimeException(
-                    'Unable to connect to MikroTik RouterOS SSH (' . $host . ':' . $port . '): Connection refused. '
-                    . 'RouterOS SSH connection could not be established on the configured SSH port.',
-                    0,
-                    $e
-                );
+                throw new RuntimeException('Unable to connect to MikroTik RouterOS SSH (' . $host . ':' . $port . '): Connection refused. RouterOS SSH connection could not be established on the configured SSH port.', 0, $e);
             }
-
             if ($e instanceof RuntimeException) {
                 throw $e;
             }
-
-            throw new RuntimeException(
-                'Unable to connect to MikroTik RouterOS SSH (' . $host . ':' . $port . '): ' . $message,
-                0,
-                $e
-            );
+            throw new RuntimeException('Unable to connect to MikroTik RouterOS SSH (' . $host . ':' . $port . '): ' . $message, 0, $e);
         }
     }
 
@@ -79,7 +62,6 @@ final class RouterOsSshClient implements MikrotikClientInterface
         if ($output === false) {
             throw new RuntimeException('MikroTik SSH command failed.');
         }
-
         $output = (string)$output;
         $this->assertNoRouterOsError($output);
         return $this->parseRows($output);
@@ -99,10 +81,7 @@ final class RouterOsSshClient implements MikrotikClientInterface
 
     private function buildCommand(string $command, array $arguments): string
     {
-        $parts = array_values(array_filter(
-            explode('/', trim($command, '/')),
-            static fn(string $part): bool => $part !== ''
-        ));
+        $parts = array_values(array_filter(explode('/', trim($command, '/')), static fn(string $part): bool => $part !== ''));
         if ($parts === []) {
             throw new RuntimeException('Invalid RouterOS command.');
         }
@@ -127,15 +106,11 @@ final class RouterOsSshClient implements MikrotikClientInterface
         }
 
         if ($action === 'print') {
-            $detail = !empty($arguments['detail']);
-
-            // RouterOS SSH CLI compatibility: do not append `without-paging`.
-            // Some RouterOS versions accept the command through the interactive
-            // terminal but reject it through SSH exec with:
-            // "expected end of command (line 1 column 24)".
-            // Keep the command to the portable RouterOS CLI form.
-            $line = $base . ($detail ? ' detail' : '');
-            return $line . ($query !== null ? ' where ' . $query : '');
+            // RouterOS SSH exec is most reliable with the plain print command.
+            // In particular, avoid appending `detail` or `without-paging` here.
+            // `detail` is valid in the interactive RouterOS CLI, but some SSH
+            // exec contexts reject the combined form with "expected end of command".
+            return $base . ($query !== null ? ' where ' . $query : '');
         }
 
         if (in_array($action, ['set', 'disable', 'enable'], true)) {
@@ -146,7 +121,6 @@ final class RouterOsSshClient implements MikrotikClientInterface
             if ($selector === null) {
                 throw new RuntimeException('SSH command requires a selected RouterOS record.');
             }
-
             $line = $base . ' [find where ' . $selector . ']';
             foreach ($arguments as $key => $value) {
                 $key = (string)$key;
@@ -181,13 +155,11 @@ final class RouterOsSshClient implements MikrotikClientInterface
             if ($line === '' || str_starts_with($line, 'Flags:') || str_starts_with($line, 'Columns:') || str_starts_with($line, ';;;')) {
                 continue;
             }
-
             $index = null;
             if (preg_match('/^(\*?\d+)\s+(.+)$/', $line, $m)) {
                 $index = $m[1];
                 $line = $m[2];
             }
-
             $fields = [];
             preg_match_all('/([A-Za-z0-9_.-]+)=("(?:\\.|[^"])*"|\S+)/', $line, $matches, PREG_SET_ORDER);
             foreach ($matches as $match) {
@@ -200,11 +172,9 @@ final class RouterOsSshClient implements MikrotikClientInterface
                 $rows[] = $fields;
             }
         }
-
         if ($rows !== []) {
             return $rows;
         }
-
         $fallback = [];
         if (preg_match('/\bname\s*[=:]\s*"?([^"\r\n]+)"?/i', $output, $m)) {
             $fallback['name'] = trim($m[1]);
