@@ -12,7 +12,6 @@
       const open = sidebar.classList.toggle('is-open');
       toggle.setAttribute('aria-expanded', String(open));
     });
-
     qsa('[data-sidebar] a').forEach(a => a.addEventListener('click', () => {
       if (window.innerWidth < 768) sidebar.classList.remove('is-open');
     }));
@@ -65,28 +64,40 @@
     }
   };
 
-  const applyLanguage = lang => {
-    const dict = translations[lang] || translations.en;
-    document.documentElement.lang = lang === 'bn' ? 'bn' : 'en';
+  const applyLanguage = (requested) => {
+    const lang = requested === 'bn' ? 'bn' : 'en';
+    const dict = translations[lang];
+    document.documentElement.lang = lang;
     document.documentElement.dataset.lang = lang;
     qsa('[data-i18n]').forEach(el => {
-      const key = el.dataset.i18n;
-      if (dict[key]) el.textContent = dict[key];
+      const key = el.getAttribute('data-i18n');
+      if (key && Object.prototype.hasOwnProperty.call(dict, key)) el.textContent = dict[key];
     });
-    qsa('[data-language]').forEach(btn => btn.classList.toggle('active', btn.dataset.language === lang));
+    qsa('[data-language]').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-language') === lang);
+      btn.setAttribute('aria-pressed', btn.getAttribute('data-language') === lang ? 'true' : 'false');
+    });
     try { localStorage.setItem('ispluka.language', lang); } catch (_) {}
+    return lang;
   };
 
-  qsa('[data-language]').forEach(btn => btn.addEventListener('click', () => applyLanguage(btn.dataset.language)));
-  if (qsa('[data-language]').length) {
+  window.applyIsplukaLanguage = applyLanguage;
+
+  const initLanguage = () => {
     let saved = 'en';
     try { saved = localStorage.getItem('ispluka.language') || 'en'; } catch (_) {}
     applyLanguage(saved);
-  }
+    qsa('[data-language]').forEach(btn => {
+      btn.addEventListener('click', () => applyLanguage(btn.getAttribute('data-language')));
+    });
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initLanguage, { once: true });
+  else initLanguage();
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js?v=3').catch(() => {});
+      navigator.serviceWorker.register('/sw.js?v=4').catch(() => {});
     });
   }
 })();
