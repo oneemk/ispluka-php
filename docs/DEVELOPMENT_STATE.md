@@ -6,6 +6,10 @@
 - Namecheap shared hosting + cPanel + LiteSpeed-compatible public entry
 - Repository: `oneemk/ispluka-php`
 - Active branch: `feat/mikrotik-reconciliation`
+- Canonical server repository path: `/home/isplzepc/repositories/ispluka-php`
+- Public application path: `/home/isplzepc/repositories/ispluka-php/public`
+- cPanel document root: `/home/isplzepc/public_html`
+- Git repository: `/home/isplzepc/repositories/ispluka-php/.git`
 - No VPS migration
 
 ## Completed / implemented foundation
@@ -30,6 +34,10 @@
 19. Hotspot mutation audit coverage for database and router-backed actions
 20. PATCH/DELETE request routing support and request-body parsing for API operations
 21. Hotspot validity-duration smoke coverage
+22. Hotspot controlled operational resource gateway/service foundation
+23. Hotspot IP binding, walled-garden and address-list read/create/delete API routes
+24. Hotspot traffic aggregation API and database login-history API
+25. RouterOS Hotspot-focused log read API with audit coverage
 
 ## Verified Hotspot state
 - Hotspot profiles support arbitrary duration expressions through `ValidityDuration`.
@@ -43,6 +51,12 @@
 - Hotspot router operations use the existing encrypted router credentials and RouterOS API/SSH connection abstraction.
 - Hotspot network and database mutation actions record success/failure audit entries with authenticated actor context where available.
 - Existing Hotspot operational read APIs expose sessions, hosts, IP bindings, walled garden, address lists and logs.
+- Controlled RouterOS operational resources are allow-listed; arbitrary RouterOS command paths are not accepted by the Hotspot API.
+- IP bindings, walled garden and address lists have explicit read/create/delete operations guarded by router permissions and CSRF for mutations.
+- Traffic API aggregates active RouterOS Hotspot bytes in/out and returns a bounded top-user list.
+- Login history is read from tenant-scoped `hotspot_sessions` data and can be filtered by router with a bounded limit.
+- RouterOS logs are filtered to Hotspot/login/logout-related records before returning to the caller.
+- All operational resource/router-log actions are tenant-scoped through `RouterRepository` and the existing encrypted RouterOS connection abstraction.
 - Hotspot routes remain protected by authentication, subscription guard, router view/manage permission and CSRF for mutations.
 
 ## Hotspot API routes currently exposed
@@ -66,26 +80,40 @@
 - `GET /api/hotspot/walled-garden`
 - `GET /api/hotspot/address-lists`
 - `GET /api/hotspot/logs`
+- `GET /api/hotspot/operational/ip-bindings`
+- `POST /api/hotspot/operational/ip-bindings`
+- `DELETE /api/hotspot/operational/ip-bindings`
+- `GET /api/hotspot/operational/walled-garden`
+- `POST /api/hotspot/operational/walled-garden`
+- `DELETE /api/hotspot/operational/walled-garden`
+- `GET /api/hotspot/operational/address-lists`
+- `POST /api/hotspot/operational/address-lists`
+- `DELETE /api/hotspot/operational/address-lists`
+- `GET /api/hotspot/traffic`
+- `GET /api/hotspot/login-history`
+- `GET /api/hotspot/router-logs`
 
-The custom router currently uses exact paths rather than URI-template parameters; update/delete IDs are therefore supplied in the request body. This is intentional and compatible with the existing application routing style.
+The custom router uses exact paths rather than URI-template parameters; operational resource IDs are therefore supplied in the request body for delete operations. Resource type is derived from the exact route path and mapped to an internal allow-list.
 
 ## Tests
 - Added `tests/Hotspot/ValidityDurationSmokeTest.php` covering valid duration normalization and malformed/zero/duplicate-unit rejection.
+- The current batch is designed to remain backward-compatible and introduces no database migration.
 - Do not claim full Hotspot integration/security tests have passed yet; those require a real PostgreSQL test environment and RouterOS test doubles/integration coverage.
 
 ## Remaining Hotspot work
-### Step 23C — Complete operational resource synchronization
-1. Add controlled write APIs for IP bindings, walled garden and address lists.
-2. Add RouterOS → database synchronization for hosts and operational resource state where appropriate.
-3. Add Hotspot traffic aggregation/report API and login-history support.
-4. Add dedicated Hotspot permissions if the existing RBAC model can support them without breaking router permissions.
-5. Add real PHPUnit/security/integration coverage using PostgreSQL fixtures and RouterOS test doubles.
-6. Verify all mutation audit paths, tenant isolation and failure/retry behavior.
+### Step 23C — Verification and synchronization hardening
+1. Add RouterOS → database synchronization for hosts and operational resource state where appropriate.
+2. Decide whether operational resources should be persisted locally for audit/history, without duplicating RouterOS as an unsafe second source of truth.
+3. Add dedicated Hotspot permissions if the existing RBAC model can support them without breaking router permissions.
+4. Add real PHPUnit/security/integration coverage using PostgreSQL fixtures and RouterOS test doubles.
+5. Verify all mutation audit paths, tenant isolation, RouterOS failure handling and retry behavior.
+6. Verify RouterOS API and SSH behavior for every operational resource command on supported RouterOS versions.
 
 ### Step 24 — Separate Hotspot Panel UI
 - Build the mobile-first Hotspot Panel only after the API/domain layer is testable.
 - Keep Hotspot navigation and business logic independent from PPPoE billing.
 - Include non-blocking router-time warning with Fix Time / Ignore & Continue.
+- Provide operational resource management, live sessions, traffic, login history and audit views.
 
 ### Step 25 — cPanel deployment / observability
 - Verify migrations, cron commands, worker locking, logging, health checks and production-safe configuration on Namecheap/cPanel.
@@ -93,11 +121,14 @@ The custom router currently uses exact paths rather than URI-template parameters
 ### Step 26 — Full integration/security/performance verification
 - Run real PHPUnit/feature/security/integration coverage.
 - Verify tenant isolation, encrypted credential handling and live MikroTik operations.
+- Verify bounded API response sizes and failure/retry behavior under slow or unavailable routers.
 
 ### Step 27 — Production hardening / release candidate
 - Final documentation, rollback procedure, deployment checklist and release validation.
 
 ## Important rules
+- Canonical server repository path is `/home/isplzepc/repositories/ispluka-php`; do not use `/home/isplzepc/ispluka-php` as the project working tree.
+- Git commands for this project must run from `/home/isplzepc/repositories/ispluka-php`.
 - Strict tenant isolation on every tenant-owned query.
 - Never store plaintext recoverable secrets; use `SecretBox` for router and Hotspot credentials.
 - PDO prepared statements only.
@@ -110,12 +141,13 @@ The custom router currently uses exact paths rather than URI-template parameters
 - Do not replace the custom PHP architecture with Laravel or the previous Node/Next.js stack.
 - Do not modify historical migrations blindly; inspect migration history/schema before schema changes.
 - Deployment target remains Namecheap shared hosting/cPanel.
+- Hotspot operational APIs must never accept arbitrary RouterOS command names from HTTP input.
 
 ## Last state review
-Reviewed against `feat/mikrotik-reconciliation` on 2026-08-19. Step 23B is substantially implemented: database-backed Hotspot profile/user CRUD, encrypted user credentials, idempotent first-login activation, RouterOS session synchronization, mutation audit coverage, API routing and smoke-test coverage are now present. The module is **not yet production-complete** because operational write synchronization, traffic/history, dedicated permissions and full integration/security tests remain.
+Reviewed against `feat/mikrotik-reconciliation` on 2026-08-19. Step 23C is partially implemented: controlled RouterOS operational resource operations, traffic aggregation, login history and RouterOS Hotspot log APIs are now wired with tenant checks, router permissions, CSRF on mutations and audit coverage. No database migration was introduced. The module is **not yet production-complete** because host/resource synchronization, dedicated permissions evaluation, RouterOS API/SSH integration verification and full integration/security tests remain.
 
 ## Immediate next
-**Step 23C — Complete Hotspot operational resource synchronization, controlled writes, traffic/history APIs, dedicated permissions evaluation, and real integration/security tests.**
+**Step 23C — Verification and synchronization hardening: host/resource synchronization strategy, dedicated Hotspot permissions evaluation, RouterOS API/SSH verification, and real integration/security tests.**
 
 ## Continuation instruction
 If the user returns after a gap and says `next`, `পরবর্তী`, or `করুন`, read this file first and continue from the Immediate next item. Work in a coherent production batch and update this file after each completed step.
