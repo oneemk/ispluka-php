@@ -5,9 +5,10 @@ $customers = $snapshot['recentCustomers'] ?? [];
 $trend = $snapshot['collectionTrend'] ?? [];
 $money = static fn(float|int $v): string => '৳' . number_format((float) $v, 0);
 $number = static fn(float|int $v): string => number_format((float) $v);
-$maxTrend = 1.0;
-foreach ($trend as $row) $maxTrend = max($maxTrend, (float) ($row['amount'] ?? 0));
+$maxTrend = max(1.0, ...array_map(static fn(array $row): float => (float) ($row['amount'] ?? 0), $trend));
 $csrfToken = htmlspecialchars((string) ($csrfToken ?? $csrf ?? ''), ENT_QUOTES, 'UTF-8');
+$displayRole = ucwords(str_replace('_', ' ', (string) ($role ?? 'user')));
+$greeting = in_array((string) ($role ?? ''), ['master_admin', 'admin'], true) ? 'Admin' : $displayRole;
 ?>
 <!doctype html>
 <html lang="en" data-lang="en">
@@ -16,7 +17,7 @@ $csrfToken = htmlspecialchars((string) ($csrfToken ?? $csrf ?? ''), ENT_QUOTES, 
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
     <meta name="theme-color" content="#08111f">
     <link rel="stylesheet" href="/assets/css/app.css?v=4">
-    <link rel="stylesheet" href="/assets/css/dashboard.css?v=4">
+    <link rel="stylesheet" href="/assets/css/dashboard.css?v=5">
     <title>ISPLUKA Dashboard</title>
 </head>
 <body class="dashboard-page">
@@ -70,24 +71,37 @@ $csrfToken = htmlspecialchars((string) ($csrfToken ?? $csrf ?? ''), ENT_QUOTES, 
     <section class="welcome-row">
         <div>
             <span class="eyebrow" data-i18n="control_center">ISP CONTROL CENTER</span>
-            <h1 data-i18n="good_morning">Good Morning, Admin 👋</h1>
-            <p data-i18n="overview_subtitle">Everything important about your ISP, in one place.</p>
+            <h1><span data-i18n="good_morning">Good Morning</span>, <?=htmlspecialchars($greeting, ENT_QUOTES, 'UTF-8')?> <span aria-hidden="true">👋</span></h1>
+            <p><?=htmlspecialchars((string) $tenantName, ENT_QUOTES, 'UTF-8')?> · <span data-i18n="overview_subtitle">Your ISP operational overview at a glance.</span></p>
         </div>
-        <div class="welcome-meta"><span class="live-pill"><i></i><span data-i18n="live_data">Live data</span></span></div>
+        <div class="welcome-meta"><span class="scope-pill"><?=htmlspecialchars($displayRole, ENT_QUOTES, 'UTF-8')?></span></div>
     </section>
 
-    <section class="shortcut-grid shortcut-grid-focus">
-        <a class="shortcut shortcut-primary" href="/collection"><span><strong data-i18n="collection">Collection</strong><small data-i18n="collect_payment">Collect customer payment</small></span><b>Open&nbsp;→</b></a>
-        <a class="shortcut" href="/reports/collection"><span><strong data-i18n="collection_report">Collection Report</strong><small data-i18n="collection_history">View collection history</small></span><b>Open&nbsp;→</b></a>
-        <a class="shortcut" href="/customers/create"><span><strong data-i18n="add_customer">Add Customer</strong><small data-i18n="create_subscriber">Create a new subscriber</small></span><b>Open&nbsp;→</b></a>
-        <a class="shortcut" href="/customers"><span><strong data-i18n="search_customer">Search Customer</strong><small data-i18n="find_customer">Find by name, phone or code</small></span><b>Open&nbsp;→</b></a>
+    <section class="shortcut-grid-focus" aria-label="Quick actions">
+        <a class="shortcut shortcut-primary" href="/collection"><span><strong data-i18n="collection">Collection</strong><small data-i18n="collect_payment">Collect customer payment</small></span><b data-i18n="open">Open →</b></a>
+        <a class="shortcut" href="/customers/create"><span><strong data-i18n="add_customer">Add Customer</strong><small data-i18n="create_subscriber">Create a new subscriber</small></span><b data-i18n="open">Open →</b></a>
+        <a class="shortcut" href="/customers"><span><strong data-i18n="search_customer">Search Customer</strong><small data-i18n="find_customer">Find by name, phone or code</small></span><b data-i18n="open">Open →</b></a>
+        <a class="shortcut" href="/networking/mikrotik/routers"><span><strong data-i18n="mikrotik_routers">MikroTik Routers</strong><small data-i18n="manage_network">Manage network infrastructure</small></span><b data-i18n="open">Open →</b></a>
     </section>
 
+    <section class="section-heading"><div><span class="panel-kicker" data-i18n="overview">OVERVIEW</span><h2 data-i18n="business_snapshot">Business Snapshot</h2></div></section>
     <section class="stats-grid">
         <article class="metric-card"><div class="metric-icon blue">♙</div><div><span data-i18n="total_customers">Total Customers</span><strong><?= $number($summary['customers'] ?? 0) ?></strong><small>+<?= $number($summary['new_customers_today'] ?? 0) ?> <span data-i18n="today">today</span></small></div></article>
         <article class="metric-card"><div class="metric-icon green">✓</div><div><span data-i18n="active_services">Active Services</span><strong><?= $number($summary['active_services'] ?? 0) ?></strong><small data-i18n="currently_active">Currently active</small></div></article>
-        <article class="metric-card"><div class="metric-icon amber">!</div><div><span data-i18n="outstanding">Due / Outstanding</span><strong><?= $money($summary['outstanding'] ?? 0) ?></strong><small><?= $number($summary['overdue_invoices'] ?? 0) ?> <span data-i18n="overdue_invoices">overdue invoices</span></small></div></article>
-        <article class="metric-card"><div class="metric-icon violet">৳</div><div><span data-i18n="monthly_collected">Collected This Month</span><strong><?= $money($summary['monthly_collected'] ?? 0) ?></strong><small><?= $money($summary['today_collected'] ?? 0) ?> <span data-i18n="today">today</span></small></div></article>
+        <article class="metric-card"><div class="metric-icon amber">!</div><div><span data-i18n="suspended_services">Suspended Services</span><strong><?= $number($summary['suspended_services'] ?? 0) ?></strong><small data-i18n="service_status">Service status</small></div></article>
+        <article class="metric-card"><div class="metric-icon red">!</div><div><span data-i18n="overdue_invoices_count">Overdue Invoices</span><strong><?= $number($summary['overdue_invoices'] ?? 0) ?></strong><small data-i18n="needs_attention">Needs attention</small></div></article>
+        <article class="metric-card"><div class="metric-icon violet">৳</div><div><span data-i18n="outstanding">Due / Outstanding</span><strong><?= $money($summary['outstanding'] ?? 0) ?></strong><small data-i18n="receivable">Current receivable</small></div></article>
+        <article class="metric-card"><div class="metric-icon cyan">৳</div><div><span data-i18n="today_collection">Today's Collection</span><strong><?= $money($summary['today_collected'] ?? 0) ?></strong><small data-i18n="completed_today">Completed today</small></div></article>
+        <article class="metric-card"><div class="metric-icon indigo">৳</div><div><span data-i18n="monthly_collected">Monthly Collection</span><strong><?= $money($summary['monthly_collected'] ?? 0) ?></strong><small data-i18n="current_month">Current month</small></div></article>
+        <article class="metric-card"><div class="metric-icon slate">◉</div><div><span data-i18n="routers">MikroTik Routers</span><strong><?= $number($summary['routers_total'] ?? 0) ?></strong><small><span class="inline-status online"><?= $number($summary['routers_online'] ?? 0) ?> <span data-i18n="online">online</span></span> · <span class="inline-status offline"><?= $number($summary['routers_offline'] ?? 0) ?> <span data-i18n="offline">offline</span></span></small></div></article>
+    </section>
+
+    <section class="section-heading section-heading-spaced"><div><span class="panel-kicker" data-i18n="network">NETWORK</span><h2 data-i18n="network_health">Network Health</h2></div><a href="/networking/mikrotik/routers" data-i18n="manage">Manage →</a></section>
+    <section class="network-strip">
+        <div class="network-status-card online-card"><span class="status-dot"></span><div><small data-i18n="online_routers">Online Routers</small><strong><?= $number($summary['routers_online'] ?? 0) ?></strong></div></div>
+        <div class="network-status-card offline-card"><span class="status-dot"></span><div><small data-i18n="offline_routers">Offline Routers</small><strong><?= $number($summary['routers_offline'] ?? 0) ?></strong></div></div>
+        <div class="network-status-card total-card"><span class="status-dot"></span><div><small data-i18n="total_routers">Total Routers</small><strong><?= $number($summary['routers_total'] ?? 0) ?></strong></div></div>
+        <a class="network-cta" href="/networking/mikrotik/enforcement-audit"><span data-i18n="network_audit">Network Audit</span><b>→</b></a>
     </section>
 
     <section class="dashboard-grid-main">
@@ -102,8 +116,7 @@ $csrfToken = htmlspecialchars((string) ($csrfToken ?? $csrf ?? ''), ENT_QUOTES, 
         </article>
         <article class="panel health-panel">
             <div class="panel-head"><div><span class="panel-kicker" data-i18n="services">SERVICES</span><h2 data-i18n="service_health">Service Health</h2><p class="muted" data-i18n="subscriber_status">Subscriber service status</p></div></div>
-            <div class="health-ring"><div><strong><?= $number($summary['active_services'] ?? 0) ?></strong><span data-i18n="active">active</span></div></div>
-            <div class="health-list"><div><span class="dot green-dot"></span><span data-i18n="active">Active</span><strong><?= $number($summary['active_services'] ?? 0) ?></strong></div><div><span class="dot amber-dot"></span><span data-i18n="suspended">Suspended</span><strong><?= $number($summary['suspended_services'] ?? 0) ?></strong></div><div><span class="dot red-dot"></span><span data-i18n="overdue">Overdue</span><strong><?= $number($summary['overdue_invoices'] ?? 0) ?></strong></div></div>
+            <div class="service-summary"><div class="service-primary"><strong><?= $number($summary['active_services'] ?? 0) ?></strong><span data-i18n="active">Active Services</span></div><div class="service-line"><span class="dot green-dot"></span><span data-i18n="active">Active</span><strong><?= $number($summary['active_services'] ?? 0) ?></strong></div><div class="service-line"><span class="dot amber-dot"></span><span data-i18n="suspended">Suspended</span><strong><?= $number($summary['suspended_services'] ?? 0) ?></strong></div><div class="service-line"><span class="dot red-dot"></span><span data-i18n="overdue">Overdue</span><strong><?= $number($summary['overdue_invoices'] ?? 0) ?></strong></div></div>
         </article>
     </section>
 
@@ -121,20 +134,15 @@ $csrfToken = htmlspecialchars((string) ($csrfToken ?? $csrf ?? ''), ENT_QUOTES, 
             <div class="panel-head"><div><span class="panel-kicker" data-i18n="customers">CUSTOMERS</span><h2 data-i18n="recent_customers">Recent Customers</h2><p class="muted" data-i18n="newest_accounts">Newest subscriber accounts</p></div><a href="/customers" data-i18n="view_all">View all →</a></div>
             <div class="activity-list">
                 <?php foreach ($customers as $customer): ?>
-                    <a class="activity-row customer-row" href="/api/customer?id=<?= (int) $customer['id'] ?>"><span class="activity-avatar customer-avatar">♙</span><div class="activity-copy"><strong><?= htmlspecialchars((string) $customer['name'], ENT_QUOTES, 'UTF-8') ?></strong><small><?= htmlspecialchars((string) $customer['customer_code'], ENT_QUOTES, 'UTF-8') ?> · <?= htmlspecialchars((string) ($customer['phone'] ?? 'No phone'), ENT_QUOTES, 'UTF-8') ?></small></div><span class="status-badge <?= htmlspecialchars((string) $customer['status'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(ucfirst((string) $customer['status']), ENT_QUOTES, 'UTF-8') ?></span></a>
+                    <a class="activity-row customer-row" href="/customers?id=<?= (int) $customer['id'] ?>"><span class="activity-avatar customer-avatar">♙</span><div class="activity-copy"><strong><?= htmlspecialchars((string) $customer['name'], ENT_QUOTES, 'UTF-8') ?></strong><small><?= htmlspecialchars((string) $customer['customer_code'], ENT_QUOTES, 'UTF-8') ?> · <?= htmlspecialchars((string) ($customer['phone'] ?? 'No phone'), ENT_QUOTES, 'UTF-8') ?></small></div><span class="status-badge <?= htmlspecialchars((string) $customer['status'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(ucfirst((string) $customer['status']), ENT_QUOTES, 'UTF-8') ?></span></a>
                 <?php endforeach; ?>
                 <?php if ($customers === []): ?><div class="empty-state" data-i18n="no_customers">No customers found.</div><?php endif; ?>
             </div>
-        </article>
-        <article class="panel router-panel">
-            <div class="panel-head"><div><span class="panel-kicker" data-i18n="network">NETWORK</span><h2 data-i18n="router_health">Router Health</h2><p class="muted" data-i18n="router_state">Last recorded RouterOS connection state</p></div><a href="/networking/mikrotik/routers" data-i18n="manage">Manage →</a></div>
-            <div class="router-summary"><div class="router-big"><strong><?= $number($summary['routers_online'] ?? 0) ?></strong><span data-i18n="online">Online</span></div><div class="router-big offline"><strong><?= $number($summary['routers_offline'] ?? 0) ?></strong><span data-i18n="offline">Offline</span></div><div class="router-big total"><strong><?= $number($summary['routers_total'] ?? 0) ?></strong><span data-i18n="total">Total</span></div></div>
-            <a class="network-cta" href="/networking/mikrotik/routers"><span data-i18n="open_mikrotik">Open MikroTik management</span><b>→</b></a>
         </article>
     </section>
 </div>
 </main>
 </div>
-<script src="/assets/js/app.js?v=4" defer></script>
+<script src="/assets/js/app.js?v=5" defer></script>
 </body>
 </html>
