@@ -13,6 +13,24 @@ use RuntimeException;
 
 final class RouterOsHotspotGateway implements MikroTikHotspotGateway
 {
+    private const RESOURCES = [
+        'ip_binding' => [
+            'print' => '/ip/hotspot/ip-binding/print',
+            'add' => '/ip/hotspot/ip-binding/add',
+            'remove' => '/ip/hotspot/ip-binding/remove',
+        ],
+        'walled_garden' => [
+            'print' => '/ip/hotspot/walled-garden/print',
+            'add' => '/ip/hotspot/walled-garden/add',
+            'remove' => '/ip/hotspot/walled-garden/remove',
+        ],
+        'address_list' => [
+            'print' => '/ip/firewall/address-list/print',
+            'add' => '/ip/firewall/address-list/add',
+            'remove' => '/ip/firewall/address-list/remove',
+        ],
+    ];
+
     public function __construct(
         private readonly RouterRepository $routers,
         private readonly SecretBox $secrets,
@@ -142,6 +160,110 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
         $this->toggle($tenantId, $routerId, $username, '/ip/hotspot/user/enable');
     }
 
+    public function resourceList(int $tenantId, int $routerId, string $resource): array
+    {
+        $definition = $this->resource($resource);
+        $router = $this->router($tenantId, $routerId);
+        try {
+            $this->connect($router);
+            $rows = $this->client->command($definition['print']);
+            $this->routers->markConnection($tenantId, $routerId, true);
+            return $rows;
+        } catch (\Throwable $e) {
+            $this->routers->markConnection($tenantId, $routerId, false, $e->getMessage());
+            throw new RuntimeException('Unable to read MikroTik Hotspot resource.', 0, $e);
+        } finally {
+            $this->transportDisconnect();
+        }
+    }
+
+    public function resourceCreate(int $tenantId, int $routerId, string $resource, array $attributes): array
+    {
+        $definition = $this->resource($resource);
+        $router = $this->router($tenantId, $routerId);
+        try {
+            $this->connect($router);
+            $result = $this->client->command($definition['add'], $attributes);
+            $this->routers->markConnection($tenantId, $routerId, true);
+            return $result[0] ?? $result;
+        } catch (\Throwable $e) {
+            $this->routers->markConnection($tenantId, $routerId, false, $e->getMessage());
+            throw new RuntimeException('Unable to create MikroTik Hotspot resource.', 0, $e);
+        } finally {
+            $this->transportDisconnect();
+        }
+    }
+
+    public function resourceDelete(int $tenantId, int $routerId, string $resource, string $id): void
+    {
+        $definition = $this->resource($resource);
+        $router = $this->router($tenantId, $routerId);
+        try {
+            $this->connect($router);
+            $rows = $this->client->command($definition['print']);
+            $found = false;
+            foreach ($rows as $row) {
+                if ((string) ($row['.id'] ?? '') === $id) {
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
+                throw new RuntimeException('RouterOS resource was not found.');
+            }
+            $this->client->command($definition['remove'], ['.id' => $id]);
+            $this->routers->markConnection($tenantId, $routerId, true);
+        } catch (\Throwable $e) {
+            $this->routers->markConnection($tenantId, $routerId, false, $e->getMessage());
+            throw new RuntimeException('Unable to delete MikroTik Hotspot resource.', 0, $e);
+        } finally {
+            $this->transportDisconnect();
+        }
+    }
+
+    public function traffic(int $tenantId, int $routerId): array
+    {
+        $rows = $this->activeUsers($tenantId, $routerId);
+        $bytesIn = 0;
+        $bytesOut = 0;
+        $users = [];
+        foreach ($rows as $row) {
+            $in = (int) ($row['bytes_in'] ?? 0);
+            $out = (int) ($row['bytes_out'] ?? 0);
+            $bytesIn += max(0, $in);
+            $bytesOut += max(0, $out);
+            $users[] = [
+                'username' => $row['username'] ?? null,
+                'address' => $row['address'] ?? null,
+                'bytes_in' => $in,
+                'bytes_out' => $out,
+                'uptime' => $row['uptime'] ?? null,
+            ];
+        }
+        usort($users, static fn (array $a, array $b): int => (($b['bytes_in'] + $b['bytes_out']) <=> ($a['bytes_in'] + $a['bytes_out'])));
+        return ['active_users' => count($rows), 'bytes_in' => $bytesIn, 'bytes_out' => $bytesOut, 'users' => array_slice($users, 0, 100)];
+    }
+
+    public function logs(int $tenantId, int $routerId): array
+    {
+        $router = $this->router($tenantId, $routerId);
+        try {
+            $this->connect($router);
+            $rows = $this->client->command('/log/print');
+            $this->routers->markConnection($tenantId, $routerId, true);
+            return array_values(array_filter($rows, static function (array $row): bool {
+                $topics = strtolower((string) ($row['topics'] ?? ''));
+                $message = strtolower((string) ($row['message'] ?? ''));
+                return str_contains($topics, 'hotspot') || str_contains($message, 'hotspot') || str_contains($message, 'login') || str_contains($message, 'logout');
+            }));
+        } catch (\Throwable $e) {
+            $this->routers->markConnection($tenantId, $routerId, false, $e->getMessage());
+            throw new RuntimeException('Unable to read MikroTik Hotspot logs.', 0, $e);
+        } finally {
+            $this->transportDisconnect();
+        }
+    }
+
     private function toggle(int $tenantId, int $routerId, string $username, string $command): void
     {
         $router = $this->router($tenantId, $routerId);
@@ -172,6 +294,14 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
             throw new RuntimeException('Router not found.');
         }
         return $router;
+    }
+
+    private function resource(string $resource): array
+    {
+        if (!isset(self::RESOURCES[$resource])) {
+            throw new RuntimeException('Unsupported Hotspot operational resource.');
+        }
+        return self::RESOURCES[$resource];
     }
 
     private function connect(array $router): void
