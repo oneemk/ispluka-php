@@ -1,4 +1,6 @@
 ### Read docs/AI_PROJECT_CONTEXT.md before making any changes ###
+### Also Read docs all file before making any changes ###
+
 
 Ispluka PHP — AI Project Context & Architecture Rules
   Project Identity
