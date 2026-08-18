@@ -33,7 +33,7 @@ final class PppoeActivityCollector
         $this->repository->markRouterSessionsOffline($tenantId, $routerId);
 
         $count = 0;
-        $now = time();
+        $now = gmdate('c');
         $max = max(1, min(1000, $limit));
 
         foreach (array_slice($rows, 0, $max) as $row) {
@@ -51,7 +51,7 @@ final class PppoeActivityCollector
                 $routerId,
                 $username,
                 true,
-                $row['address'] ?? null,
+                isset($row['address']) ? (string) $row['address'] : null,
                 $now,
                 $this->duration($row['uptime'] ?? null),
                 $this->bytes($row['rx-byte'] ?? null),
