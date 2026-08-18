@@ -23,21 +23,34 @@
 8. Customer import/reconciliation foundation
 9. Reseller and customer portals
 10. BTRC, reports, inventory and POS foundation
-11. Hotspot architecture/data boundaries and independent billing isolation
-12. Hotspot flexible validity and first-login absolute expiry engine
-13. Hotspot router-time pre-flight and operation guard
-14. Real tenant-aware RouterOS Hotspot gateway
-15. Hotspot API/controller/bootstrap wiring
-16. Hotspot operational read APIs and network-operation audit logging
-17. Hotspot database profile/user CRUD and activation API
-18. RouterOS active-session → database synchronization foundation
-19. Hotspot mutation audit coverage for database and router-backed actions
-20. PATCH/DELETE request routing support and request-body parsing for API operations
-21. Hotspot validity-duration smoke coverage
-22. Hotspot controlled operational resource gateway/service foundation
-23. Hotspot IP binding, walled-garden and address-list read/create/delete API routes
-24. Hotspot traffic aggregation API and database login-history API
-25. RouterOS Hotspot-focused log read API with audit coverage
+11. Dashboard operational overview and bilingual responsive UI
+12. Hotspot architecture/data boundaries and independent billing isolation
+13. Hotspot flexible validity and first-login absolute expiry engine
+14. Hotspot router-time pre-flight and operation guard
+15. Real tenant-aware RouterOS Hotspot gateway
+16. Hotspot API/controller/bootstrap wiring
+17. Hotspot operational read APIs and network-operation audit logging
+18. Hotspot database profile/user CRUD and activation API
+19. RouterOS active-session → database synchronization foundation
+20. Hotspot mutation audit coverage for database and router-backed actions
+21. PATCH/DELETE request routing support and request-body parsing for API operations
+22. Hotspot validity-duration smoke coverage
+23. Hotspot controlled operational resource gateway/service foundation
+24. Hotspot IP binding, walled-garden and address-list read/create/delete API routes
+25. Hotspot traffic aggregation API and database login-history API
+26. RouterOS Hotspot-focused log read API with audit coverage
+
+## Dashboard state
+- Dashboard remains the authenticated primary landing page at `GET /`.
+- Dashboard now follows the documented ISP ERP business order: quick actions → business snapshot → network health → collection/service health → recent collections/customers.
+- Business Snapshot displays the required customer, service, billing and collection metrics without duplicating the same KPI in multiple unrelated sections.
+- Network Health is separated from financial KPIs and surfaces total/online/offline MikroTik routers with direct Network Audit and router-management links.
+- Collection Overview retains the six-month completed-payment trend supplied by `DashboardService`.
+- Recent Collections and Recent Customers remain available with compact operational rows and clear links.
+- Dashboard is responsive for desktop, tablet and mobile layouts and keeps the existing sidebar/header architecture.
+- Dashboard language switching now covers the reorganized labels in both English and বাংলা.
+- Dashboard uses the existing `DashboardService` data contract; no database migration or new dashboard data source was introduced.
+- Existing customer, collection, network and subscription navigation remains intact.
 
 ## Verified Hotspot state
 - Hotspot profiles support arbitrary duration expressions through `ValidityDuration`.
@@ -97,7 +110,7 @@ The custom router uses exact paths rather than URI-template parameters; operatio
 
 ## Tests
 - Added `tests/Hotspot/ValidityDurationSmokeTest.php` covering valid duration normalization and malformed/zero/duplicate-unit rejection.
-- The current batch is designed to remain backward-compatible and introduces no database migration.
+- The dashboard UI batch introduces no database migration.
 - Do not claim full Hotspot integration/security tests have passed yet; those require a real PostgreSQL test environment and RouterOS test doubles/integration coverage.
 
 ## Remaining Hotspot work
@@ -144,7 +157,7 @@ The custom router uses exact paths rather than URI-template parameters; operatio
 - Hotspot operational APIs must never accept arbitrary RouterOS command names from HTTP input.
 
 ## Last state review
-Reviewed against `feat/mikrotik-reconciliation` on 2026-08-19. Step 23C is partially implemented: controlled RouterOS operational resource operations, traffic aggregation, login history and RouterOS Hotspot log APIs are now wired with tenant checks, router permissions, CSRF on mutations and audit coverage. No database migration was introduced. The module is **not yet production-complete** because host/resource synchronization, dedicated permissions evaluation, RouterOS API/SSH integration verification and full integration/security tests remain.
+Reviewed against `feat/mikrotik-reconciliation` on 2026-08-19. Dashboard UI was reorganized to match the documented ISP ERP business order and bilingual responsive requirements. Step 23C remains partially implemented: controlled RouterOS operational resource operations, traffic aggregation, login history and RouterOS Hotspot log APIs are wired with tenant checks, router permissions, CSRF on mutations and audit coverage. No database migration was introduced. The module is **not yet production-complete** because host/resource synchronization, dedicated permissions evaluation, RouterOS API/SSH integration verification and full integration/security tests remain.
 
 ## Immediate next
 **Step 23C — Verification and synchronization hardening: host/resource synchronization strategy, dedicated Hotspot permissions evaluation, RouterOS API/SSH verification, and real integration/security tests.**
