@@ -30,16 +30,14 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
             if ($date === '' || $time === '') {
                 throw new RuntimeException('RouterOS did not return a usable clock value.');
             }
-
-            $timezone = $this->routerTimezone($row);
-            $value = new DateTimeImmutable($date . ' ' . $time, $timezone);
+            $value = new DateTimeImmutable($date . ' ' . $time, $this->routerTimezone($row));
             $this->routers->markConnection($tenantId, $routerId, true);
             return $value;
         } catch (\Throwable $e) {
             $this->routers->markConnection($tenantId, $routerId, false, $e->getMessage());
             throw new RuntimeException('Unable to read MikroTik router time.', 0, $e);
         } finally {
-            $this->disconnect();
+            $this->transportDisconnect();
         }
     }
 
@@ -65,7 +63,7 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
             $this->routers->markConnection($tenantId, $routerId, false, $e->getMessage());
             throw new RuntimeException('Unable to read active MikroTik Hotspot sessions.', 0, $e);
         } finally {
-            $this->disconnect();
+            $this->transportDisconnect();
         }
     }
 
@@ -75,7 +73,6 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
         if ($username === '') {
             throw new RuntimeException('Hotspot username is required.');
         }
-
         $router = $this->router($tenantId, $routerId);
         try {
             $this->connect($router);
@@ -91,7 +88,7 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
             $this->routers->markConnection($tenantId, $routerId, false, $e->getMessage());
             throw new RuntimeException('Unable to disconnect MikroTik Hotspot user.', 0, $e);
         } finally {
-            $this->disconnect();
+            $this->transportDisconnect();
         }
     }
 
@@ -101,11 +98,7 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
         $payload = $this->userPayload($attributes);
         try {
             $this->connect($router);
-            $username = (string) ($payload['name'] ?? '');
-            if ($username === '') {
-                throw new RuntimeException('Hotspot username is required.');
-            }
-            $existing = $this->client->command('/ip/hotspot/user/print', ['?name' => $username]);
+            $existing = $this->client->command('/ip/hotspot/user/print', ['?name' => (string) $payload['name']]);
             if ($existing !== []) {
                 throw new RuntimeException('Hotspot user already exists on the router.');
             }
@@ -115,7 +108,7 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
             $this->routers->markConnection($tenantId, $routerId, false, $e->getMessage());
             throw new RuntimeException('Unable to create MikroTik Hotspot user.', 0, $e);
         } finally {
-            $this->disconnect();
+            $this->transportDisconnect();
         }
     }
 
@@ -135,7 +128,7 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
             $this->routers->markConnection($tenantId, $routerId, false, $e->getMessage());
             throw new RuntimeException('Unable to update MikroTik Hotspot user.', 0, $e);
         } finally {
-            $this->disconnect();
+            $this->transportDisconnect();
         }
     }
 
@@ -165,7 +158,7 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
             $this->routers->markConnection($tenantId, $routerId, false, $e->getMessage());
             throw new RuntimeException('Unable to change MikroTik Hotspot user state.', 0, $e);
         } finally {
-            $this->disconnect();
+            $this->transportDisconnect();
         }
     }
 
@@ -190,7 +183,6 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
             'username' => (string) $router['username'],
             'password' => $this->secrets->decrypt((string) $router['encrypted_password']),
         ];
-
         if ($method === 'ssh') {
             $config['ssh_port'] = (int) ($router['ssh_port'] ?? 22);
         } else {
@@ -198,11 +190,10 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
             $config['verify_ssl'] = (bool) ($router['verify_ssl'] ?? true);
             $config['api_ssl'] = false;
         }
-
         $this->client->connect($config);
     }
 
-    private function disconnect(): void
+    private function transportDisconnect(): void
     {
         try {
             $this->client->disconnect();
