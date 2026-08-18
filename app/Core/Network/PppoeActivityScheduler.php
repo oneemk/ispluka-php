@@ -18,21 +18,31 @@ final class PppoeActivityScheduler
     public function __construct(
         private readonly PppoeActivityCollector $collector,
         callable $lock,
-        ?callable $unlock = null,
-        private readonly int $intervalSeconds = 60,
+        callable|int|null $unlock = null,
+        int $intervalSeconds = 60,
     ) {
         $this->lock = Closure::fromCallable($lock);
+
+        // Backward compatibility: older callers passed the interval as the
+        // third argument. New callers may pass an explicit unlock callback.
+        if (is_int($unlock)) {
+            $intervalSeconds = $unlock;
+            $unlock = null;
+        }
+
         $this->unlock = $unlock !== null
             ? Closure::fromCallable($unlock)
             : static function (string $key): void {};
+        $this->intervalSeconds = max(30, $intervalSeconds);
     }
+
+    private readonly int $intervalSeconds;
 
     public function run(int $tenantId, int $routerId): array
     {
         $key = "pppoe-activity:{$tenantId}:{$routerId}";
-        $ttl = max(30, $this->intervalSeconds);
 
-        if (!(($this->lock)($key, $ttl))) {
+        if (!(($this->lock)($key, $this->intervalSeconds))) {
             return ['status' => 'skipped', 'reason' => 'already_running'];
         }
 
