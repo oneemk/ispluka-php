@@ -2,10 +2,16 @@
 $summary = $snapshot['summary'] ?? [];
 $payments = $snapshot['recentPayments'] ?? [];
 $customers = $snapshot['recentCustomers'] ?? [];
-$trend = $snapshot['collectionTrend'] ?? [];
+$trend = is_array($snapshot['collectionTrend'] ?? null) ? $snapshot['collectionTrend'] : [];
 $money = static fn(float|int $v): string => '৳' . number_format((float) $v, 0);
 $number = static fn(float|int $v): string => number_format((float) $v);
-$maxTrend = max(1.0, ...array_map(static fn(array $row): float => (float) ($row['amount'] ?? 0), $trend));
+$maxTrend = 1.0;
+foreach ($trend as $row) {
+    $amount = (float) ($row['amount'] ?? 0);
+    if ($amount > $maxTrend) {
+        $maxTrend = $amount;
+    }
+}
 $csrfToken = htmlspecialchars((string) ($csrfToken ?? $csrf ?? ''), ENT_QUOTES, 'UTF-8');
 $displayRole = ucwords(str_replace('_', ' ', (string) ($role ?? 'user')));
 $greeting = in_array((string) ($role ?? ''), ['master_admin', 'admin'], true) ? 'Admin' : $displayRole;
