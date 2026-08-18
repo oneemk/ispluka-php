@@ -26,6 +26,11 @@ final class PppoeActivityCollector
             throw new RuntimeException('Unable to collect MikroTik PPPoE sessions.');
         }
 
+        // A successful snapshot is authoritative for this router. Sessions that
+        // were present in the previous snapshot but are absent now must not
+        // remain online indefinitely.
+        $this->repository->markRouterSessionsOffline($tenantId, $routerId);
+
         $count = 0;
         $now = time();
 
