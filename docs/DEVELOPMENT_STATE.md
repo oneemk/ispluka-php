@@ -43,6 +43,10 @@
 32. Shared-hosting-safe database-backed network worker and overdue enforcement queue
 33. Tenant-scoped MikroTik router management and connection testing
 34. Customer import/reconciliation flow foundation and import documentation
+35. Real RouterOS Hotspot gateway foundation
+36. Hotspot API controller/bootstrap wiring
+37. Hotspot operational read APIs for sessions, hosts, bindings, walled garden, address lists and logs
+38. Hotspot network-operation audit service with actor context
 
 ## Verified current repository state
 The branch was re-inspected against the repository structure, README, AI project context, API/architecture/deployment documentation, MikroTik/PPPoE documentation, Hotspot documentation, and current PHP source tree.
@@ -58,23 +62,24 @@ The branch was re-inspected against the repository structure, README, AI project
 - Enforcement retry is explicit, permission-controlled, bounded, and re-reads current RouterOS state before retrying.
 
 ### Hotspot
-The Hotspot core existed before this state review and is now partially wired further:
+The Hotspot core existed before this state review and is now wired further:
 - `HotspotRepository`
 - `HotspotCrudService`
 - `HotspotActionService`
+- `HotspotAuditService`
 - `HotspotOperationGuard`
 - `HotspotValidityService`
 - `ValidityDuration`
 - `RouterTimeCheckService`
 - Tenant-aware `MikroTikHotspotGateway`
-- New `RouterOsHotspotGateway` using the existing `RouterRepository`, `SecretBox`, and `MikrotikConnectionClient`
-- New `HotspotApiController`
-- Hotspot services are wired in `bootstrap/app.php`
-- Secured Hotspot API routes are wired in `routes/web.php`
+- `RouterOsHotspotGateway` using the existing `RouterRepository`, `SecretBox`, and `MikrotikConnectionClient`
+- `HotspotApiController`
+- Hotspot services wired in `bootstrap/app.php`
+- Secured Hotspot API routes wired in `routes/web.php`
 
-The first live Hotspot gateway batch now supports tenant-scoped router time reads, active Hotspot session reads, session disconnect, router-side Hotspot user create/update/enable/disable operations, and encrypted router credentials through the existing connection abstraction.
+The live gateway currently supports tenant-scoped router time reads, active Hotspot session reads, session disconnect, router-side Hotspot user create/update/enable/disable operations, and encrypted router credentials through the existing connection abstraction. Operational read APIs now expose hosts, IP bindings, walled garden, address lists and Hotspot operation logs. Network mutations/actions record success/failure audit entries with the authenticated actor when available.
 
-This is **not yet a production-complete Hotspot module**. Database user CRUD/activation synchronization, full API contract coverage, dedicated Hotspot permissions, operation/audit persistence for every mutation, real integration tests, and the Hotspot UI are still pending.
+This is **not yet a production-complete Hotspot module**. Database user CRUD/activation synchronization, profile update/delete, RouterOS-to-database session synchronization, write APIs for bindings/walled garden/address lists, traffic API, dedicated Hotspot permissions, complete mutation audit coverage, real integration/security tests, and the Hotspot UI are still pending.
 
 ### Tests
 The repository contains the test directory structure (`Unit`, `Feature`, `Integration`, `Security`), but the branch inspection did not find actual test files in those directories. Do not claim Hotspot integration/security tests have passed until tests are added and executed.
@@ -114,15 +119,15 @@ The repository contains the test directory structure (`Unit`, `Feature`, `Integr
 - Router connection testing and per-router API/SSH selection are present.
 - Hotspot schema separates profiles/users from PPPoE billing and includes sessions, IP bindings, hosts, walled garden, address lists and operation logs.
 - Hotspot API contract is documented.
-- Hotspot live gateway/API foundation is now wired, but the module is still incomplete and must not be described as production-ready.
+- Hotspot live gateway/API foundation is wired, but the module is still incomplete and must not be described as production-ready.
 
 ## Next work order
 ### Step 23B — Complete Hotspot API/domain synchronization
 1. Implement database-backed Hotspot user CRUD and profile update/delete operations through the existing repository/service pattern.
 2. Implement first-login activation atomically and idempotently, calculating `expires_at` exactly once.
 3. Synchronize RouterOS active sessions into the existing Hotspot session tables with tenant/router ownership checks.
-4. Add operation/audit logging for every Hotspot mutation.
-5. Add full contract endpoints for bindings, hosts, walled garden, address lists, traffic and logs.
+4. Extend operation/audit logging to every Hotspot mutation, including database CRUD and router-backed resources.
+5. Add full contract endpoints for bindings, hosts, walled garden, address lists and traffic, including controlled writes where required.
 6. Add dedicated Hotspot permission codes only if the existing RBAC design supports them without breaking router permissions.
 7. Add PHPUnit unit/security/integration tests before declaring the API live.
 
@@ -154,10 +159,10 @@ The repository contains the test directory structure (`Unit`, `Feature`, `Integr
 - Deployment target remains Namecheap shared hosting/cPanel; never move to VPS unless explicitly requested.
 
 ## Last state review
-Reviewed against the current `feat/mikrotik-reconciliation` branch on 2026-08-19. The previous Step-22-only state was stale. The branch already contains substantial PPPoE/MikroTik enforcement, activity, usage, reconciliation, import, API/SSH connectivity, and Hotspot core work. A first real Hotspot RouterOS gateway/API wiring batch has now also been added.
+Reviewed against the current `feat/mikrotik-reconciliation` branch on 2026-08-19. The previous Step-22-only state was stale. The branch already contains substantial PPPoE/MikroTik enforcement, activity, usage, reconciliation, import, API/SSH connectivity, and Hotspot core work. The branch now also contains a real RouterOS Hotspot gateway foundation, secured API wiring, operational read endpoints, and resilient network-operation audit logging.
 
 ## Immediate next
-**Step 23B — Complete Hotspot database synchronization, full API contract, audit logging, and tests.**
+**Step 23B — Complete Hotspot database synchronization, full API/domain contract, complete audit coverage, and tests.**
 
 ## Continuation instruction
 If the user returns after a long gap and says `next`, `পরবর্তী`, or `করুন`, read this file first and continue from the Immediate next item. Work in a large coherent production batch and update this file after each completed step.
