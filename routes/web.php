@@ -8,6 +8,7 @@ use Ispluka\Controllers\CollectionController;
 use Ispluka\Controllers\CustomerController;
 use Ispluka\Controllers\CustomerServiceController;
 use Ispluka\Controllers\DashboardController;
+use Ispluka\Controllers\HotspotApiController;
 use Ispluka\Controllers\MikrotikEnforcementAuditController;
 use Ispluka\Controllers\MikrotikManualActionController;
 use Ispluka\Controllers\MikrotikRouterController;
@@ -40,6 +41,7 @@ return static function (
     MikrotikManualActionController $mikrotikManual,
     TenantController $tenants,
     MikrotikRouterController $mikrotikRouters,
+    HotspotApiController $hotspot,
 ): void {
     $authentication = new RequireAuthentication($auth);
     $requireAuth = static function (Request $request, callable $next) use ($authentication, $subscriptionGuard): Response {
@@ -96,6 +98,18 @@ return static function (
     $router->post('/api/networking/mikrotik/routers/update', [$mikrotikRouters, 'update'], [$requireAuth, $routerManage, $csrfMiddleware]);
     $router->post('/api/networking/mikrotik/routers/test', [$mikrotikRouters, 'test'], [$requireAuth, $routerManage, $csrfMiddleware]);
     $router->post('/api/networking/mikrotik/routers/delete', [$mikrotikRouters, 'delete'], [$requireAuth, $routerManage, $csrfMiddleware]);
+
+    // Hotspot remains tenant-scoped and uses the existing router-management
+    // permission model until dedicated Hotspot permissions are introduced.
+    $router->get('/api/hotspot/profiles', [$hotspot, 'profiles'], [$requireAuth, $routerView]);
+    $router->post('/api/hotspot/profiles', [$hotspot, 'createProfile'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->get('/api/hotspot/users', [$hotspot, 'users'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/sessions', [$hotspot, 'sessions'], [$requireAuth, $routerView]);
+    $router->post('/api/hotspot/sessions/disconnect', [$hotspot, 'disconnect'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->get('/api/hotspot/routers/time-check', [$hotspot, 'routerTime'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/routers/active', [$hotspot, 'activeUsers'], [$requireAuth, $routerView]);
+    $router->post('/api/hotspot/users/disable', [$hotspot, 'disableUser'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->post('/api/hotspot/users/enable', [$hotspot, 'enableUser'], [$requireAuth, $routerManage, $csrfMiddleware]);
 
     $auditView = $authorize->permission('routers.view');
     $networkManage = $authorize->permission('routers.manage');
