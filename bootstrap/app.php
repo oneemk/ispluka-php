@@ -26,6 +26,7 @@ use Ispluka\Core\Exceptions\Handler;
 use Ispluka\Core\Http\Request;
 use Ispluka\Core\Http\Response;
 use Ispluka\Core\Hotspot\HotspotActionService;
+use Ispluka\Core\Hotspot\HotspotAuditService;
 use Ispluka\Core\Hotspot\HotspotCrudService;
 use Ispluka\Core\Hotspot\HotspotRepository;
 use Ispluka\Core\Hotspot\RouterOsHotspotGateway;
@@ -50,9 +51,7 @@ require_once dirname(__DIR__) . '/vendor/autoload.php';
 
 $root = dirname(__DIR__);
 $environmentFile = $root . '/.env';
-if (is_file($environmentFile)) {
-    Environment::load($environmentFile);
-}
+if (is_file($environmentFile)) Environment::load($environmentFile);
 
 $database = new Database(require $root . '/config/database.php');
 $session = new Session();
@@ -87,13 +86,12 @@ $tenantController = new TenantController($database, $auth, new RoleManager($data
 $hotspotRepository = new HotspotRepository($database->pdo());
 $hotspotCrud = new HotspotCrudService($database->pdo());
 $hotspotGateway = new RouterOsHotspotGateway(new RouterRepository($database), $secretBox, $mikrotikClient);
-$hotspotActions = new HotspotActionService($database->pdo(), $hotspotGateway);
+$hotspotAudit = new HotspotAuditService($database->pdo());
+$hotspotActions = new HotspotActionService($database->pdo(), $hotspotGateway, $hotspotAudit);
 $hotspotController = new HotspotApiController($hotspotRepository, $hotspotCrud, $hotspotActions, $auth);
 
 $csrfMiddleware = static function (Request $request, callable $next) use ($csrf): Response {
-    if (!$csrf->validate($request->input('_csrf'))) {
-        return Response::json(['error' => ['message' => 'Invalid CSRF token.']], 419);
-    }
+    if (!$csrf->validate($request->input('_csrf'))) return Response::json(['error' => ['message' => 'Invalid CSRF token.']], 419);
     return $next($request);
 };
 
@@ -101,26 +99,7 @@ $webRoutes = $root . '/routes/web.php';
 if (is_file($webRoutes)) {
     $registerRoutes = require $webRoutes;
     if (is_callable($registerRoutes)) {
-        $registerRoutes(
-            $router,
-            $loginController,
-            $signupController,
-            $subscriptionController,
-            $subscriptionGuard,
-            $auth,
-            $csrf,
-            $authorize,
-            $dashboardController,
-            $collectionController,
-            $customerController,
-            $customerServiceController,
-            $csrfMiddleware,
-            $mikrotikEnforcementAuditController,
-            $mikrotikManualActionController,
-            $tenantController,
-            $mikrotikRouterController,
-            $hotspotController,
-        );
+        $registerRoutes($router, $loginController, $signupController, $subscriptionController, $subscriptionGuard, $auth, $csrf, $authorize, $dashboardController, $collectionController, $customerController, $customerServiceController, $csrfMiddleware, $mikrotikEnforcementAuditController, $mikrotikManualActionController, $tenantController, $mikrotikRouterController, $hotspotController);
     }
 }
 
