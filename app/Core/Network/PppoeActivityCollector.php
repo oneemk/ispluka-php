@@ -18,8 +18,6 @@ final class PppoeActivityCollector
     public function collect(int $tenantId, int $routerId, int $limit = 1000): int
     {
         // /ppp/active/print is the authoritative live PPPoE session list.
-        // `disabled` belongs to PPP secrets/profiles and is not a reliable
-        // property of active sessions, so filtering by it can return zero.
         $rows = ($this->command)('/ppp/active/print', [
             '=.proplist' => 'name,service,address,caller-id,uptime,rx-byte,tx-byte',
         ]);
@@ -28,11 +26,10 @@ final class PppoeActivityCollector
             throw new RuntimeException('Unable to collect MikroTik PPPoE sessions.');
         }
 
-        // Reconcile only after the API snapshot succeeds. A connection/API
-        // failure must never wipe previously valid online state.
-        $this->repository->markRouterSessionsOffline($tenantId, $routerId);
-
-        $count = 0;
+        // Build the complete snapshot first. The repository is reconciled only
+        // after the RouterOS API call has succeeded, so connection/API failures
+        // cannot wipe previously valid state.
+        $states = [];
         $now = gmdate('c');
         $max = max(1, min(1000, $limit));
 
@@ -46,7 +43,7 @@ final class PppoeActivityCollector
                 continue;
             }
 
-            $this->repository->upsert(new PppoeActivityState(
+            $states[] = new PppoeActivityState(
                 $tenantId,
                 $routerId,
                 $username,
@@ -59,12 +56,12 @@ final class PppoeActivityCollector
                 null,
                 null,
                 false,
-            ));
-
-            $count++;
+            );
         }
 
-        return $count;
+        $this->repository->reconcileSnapshot($tenantId, $routerId, $states);
+
+        return count($states);
     }
 
     private function bytes(mixed $value): ?int
