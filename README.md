@@ -1,18 +1,27 @@
+### Read docs/AI_PROJECT_CONTEXT.md before making any changes ###
+
+Ispluka PHP — AI Project Context & Architecture Rules
+  Project Identity
+    Project name: Ispluka PHP
+    Repository: ispluka-php
+    Production domain: https://ispluka.online
+    This project is an ISP Billing & Management ERP designed for ISP operators.
+    This repository is the current source of truth for the PHP/cPanel edition.
+
+Current Deployment Architecture
+  The project is hosted on:
+    Namecheap hosting
+    cPanel
+    LiteSpeed
+    PHP 8.3
+    PostgreSQL
+
+Current project location on the server: /home/isplzepc/repositories/ispluka-php
+Main project public directory: /home/isplzepc/repositories/ispluka-php/public
+Current cPanel public document root: /home/isplzepc/public_html
+
 # ISPLUKA PHP
-
 Production-ready multi-tenant ISP Billing & Management ERP SaaS.
-
-## Production target
-
-- Namecheap Shared Hosting
-- cPanel
-- Apache
-- PHP 8.3+
-- PostgreSQL
-- PDO
-- SSL/HTTPS
-- cPanel Git deployment
-- cPanel Cron
 
 This project is designed specifically for shared hosting. VPS, Docker, Node.js, Redis, BullMQ, Nginx, PM2, Supervisor, and other long-running infrastructure are not required.
 
