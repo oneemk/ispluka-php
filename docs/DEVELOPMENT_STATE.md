@@ -45,20 +45,20 @@
 34. Customer import/reconciliation flow foundation and import documentation
 
 ## Verified current repository state
-The current branch was re-inspected against the repository structure, README, AI project context, API/architecture/deployment documentation, MikroTik/PPPoE documentation, Hotspot documentation, and current PHP source tree.
+The branch was re-inspected against the repository structure, README, AI project context, API/architecture/deployment documentation, MikroTik/PPPoE documentation, Hotspot documentation, and current PHP source tree.
 
 ### MikroTik / PPPoE
-- `RouterService` currently supports RouterOS API and SSH connection methods.
+- `RouterService` supports RouterOS API and SSH connection methods.
 - PPPoE active-session read/disconnect and provisioning/suspend/restore paths exist.
-- Hotspot provisioning/suspend/restore helper paths already exist inside `RouterService`.
-- Router credentials are decrypted only inside the network service path and stored encrypted through `SecretBox`.
-- Reconciliation rules are explicitly read-only by default and must never infer payment status from RouterOS or automatically change customer state merely because of a mismatch.
-- PPPoE live activity is designed around bounded router polling plus on-demand selected-customer Live Rx/Tx.
-- Router activity collection is designed around one batched active-session read per router per scheduled cycle, with compact current-state persistence and hourly/daily aggregation for historical usage.
-- Enforcement retry is explicit, permission-controlled, bounded, and must re-read current RouterOS state before retrying.
+- Hotspot provisioning/suspend/restore helper paths exist inside `RouterService`.
+- Router credentials are stored encrypted and decrypted only in the network service path.
+- Reconciliation is read-only by default and must never infer payment status from RouterOS or auto-change customer state merely because of a mismatch.
+- PPPoE live activity uses bounded router polling plus on-demand selected-customer Live Rx/Tx.
+- Router activity collection is designed around one batched active-session read per router per cycle, compact current-state persistence, and hourly/daily historical aggregation.
+- Enforcement retry is explicit, permission-controlled, bounded, and re-reads current RouterOS state before retrying.
 
 ### Hotspot
-The Hotspot core is **partially implemented beyond the old Step-22 documentation state**. The current branch contains:
+The Hotspot core existed before this state review and is now partially wired further:
 - `HotspotRepository`
 - `HotspotCrudService`
 - `HotspotActionService`
@@ -66,13 +66,18 @@ The Hotspot core is **partially implemented beyond the old Step-22 documentation
 - `HotspotValidityService`
 - `ValidityDuration`
 - `RouterTimeCheckService`
-- `MikroTikHotspotGateway` interface
-- `UnsupportedMikroTikHotspotGateway` fallback implementation
+- Tenant-aware `MikroTikHotspotGateway`
+- New `RouterOsHotspotGateway` using the existing `RouterRepository`, `SecretBox`, and `MikrotikConnectionClient`
+- New `HotspotApiController`
+- Hotspot services are wired in `bootstrap/app.php`
+- Secured Hotspot API routes are wired in `routes/web.php`
 
-Therefore Hotspot is not yet production-live. The gateway interface exists, but the current implementation still throws `MikroTik Hotspot gateway is not configured.`; API controllers/routing and a real RouterOS Hotspot adapter are not yet wired. No Hotspot production UI is currently present in the controller tree.
+The first live Hotspot gateway batch now supports tenant-scoped router time reads, active Hotspot session reads, session disconnect, router-side Hotspot user create/update/enable/disable operations, and encrypted router credentials through the existing connection abstraction.
+
+This is **not yet a production-complete Hotspot module**. Database user CRUD/activation synchronization, full API contract coverage, dedicated Hotspot permissions, operation/audit persistence for every mutation, real integration tests, and the Hotspot UI are still pending.
 
 ### Tests
-The repository currently contains the test directory structure (`Unit`, `Feature`, `Integration`, `Security`) but the branch inspection did not find actual test files in those directories. Do not claim Hotspot integration/security tests have passed until real tests are added and executed.
+The repository contains the test directory structure (`Unit`, `Feature`, `Integration`, `Security`), but the branch inspection did not find actual test files in those directories. Do not claim Hotspot integration/security tests have passed until tests are added and executed.
 
 ## UI terminology
 - Database/API may use `grace_days`.
@@ -105,26 +110,24 @@ The repository currently contains the test directory structure (`Unit`, `Feature
 - Inventory supports tenant stock, movements, low-stock detection and transactional stock deduction.
 - POS supports sales with inventory deduction and optional customer/invoice linkage.
 - BTRC report generation stores period-based JSON payloads; advanced reports cover revenue, outstanding invoices and service status.
-- PPPoE activity, usage, reconciliation, import, enforcement audit and manual enforcement foundations are present in the development branch.
+- PPPoE activity, usage, reconciliation, import, enforcement audit and manual enforcement foundations are present.
 - Router connection testing and per-router API/SSH selection are present.
 - Hotspot schema separates profiles/users from PPPoE billing and includes sessions, IP bindings, hosts, walled garden, address lists and operation logs.
-- Hotspot API contract is documented, but the API/controller/gateway wiring is still pending.
+- Hotspot API contract is documented.
+- Hotspot live gateway/API foundation is now wired, but the module is still incomplete and must not be described as production-ready.
 
 ## Next work order
-### Step 23 — Hotspot live API and RouterOS adapter
-1. Implement a real `MikroTikHotspotGateway` using the existing encrypted router credentials and `MikrotikConnectionClient` abstraction.
-2. Keep RouterOS protocol details out of controllers.
-3. Wire secure Hotspot API controllers into the existing MVC routing/bootstrap.
-4. Implement tenant-scoped/RBAC-protected CRUD for profiles and users.
-5. Implement active-session synchronization and authorized disconnect.
-6. Implement first-login activation idempotency and absolute expiry behavior.
-7. Implement router-time pre-flight as non-blocking; never silently change router time.
-8. Add explicit privileged Fix Time only if it fits the existing router-management permission model.
-9. Add tests for validity parsing, activation idempotency, tenant isolation, expiry, time-warning threshold and disconnect authorization.
-10. Do not claim Hotspot is live until the real adapter is wired and tested.
+### Step 23B — Complete Hotspot API/domain synchronization
+1. Implement database-backed Hotspot user CRUD and profile update/delete operations through the existing repository/service pattern.
+2. Implement first-login activation atomically and idempotently, calculating `expires_at` exactly once.
+3. Synchronize RouterOS active sessions into the existing Hotspot session tables with tenant/router ownership checks.
+4. Add operation/audit logging for every Hotspot mutation.
+5. Add full contract endpoints for bindings, hosts, walled garden, address lists, traffic and logs.
+6. Add dedicated Hotspot permission codes only if the existing RBAC design supports them without breaking router permissions.
+7. Add PHPUnit unit/security/integration tests before declaring the API live.
 
 ### Step 24 — Separate Hotspot Panel UI
-- Build the dedicated mobile-first Hotspot Panel after the API/gateway layer is real and testable.
+- Build the dedicated mobile-first Hotspot Panel only after the API/domain synchronization layer is testable.
 - Keep Hotspot navigation and business logic independent from PPPoE billing.
 
 ### Step 25 — cPanel deployment / observability
@@ -151,10 +154,10 @@ The repository currently contains the test directory structure (`Unit`, `Feature
 - Deployment target remains Namecheap shared hosting/cPanel; never move to VPS unless explicitly requested.
 
 ## Last state review
-Reviewed against the current `feat/mikrotik-reconciliation` branch on 2026-08-19. The previous Step-22-only state was stale: substantial PPPoE/MikroTik enforcement, activity, usage, reconciliation, import, API/SSH connectivity, and Hotspot core service work already exists.
+Reviewed against the current `feat/mikrotik-reconciliation` branch on 2026-08-19. The previous Step-22-only state was stale. The branch already contains substantial PPPoE/MikroTik enforcement, activity, usage, reconciliation, import, API/SSH connectivity, and Hotspot core work. A first real Hotspot RouterOS gateway/API wiring batch has now also been added.
 
 ## Immediate next
-**Step 23 — Hotspot live API + real RouterOS Hotspot adapter + security tests.**
+**Step 23B — Complete Hotspot database synchronization, full API contract, audit logging, and tests.**
 
 ## Continuation instruction
 If the user returns after a long gap and says `next`, `পরবর্তী`, or `করুন`, read this file first and continue from the Immediate next item. Work in a large coherent production batch and update this file after each completed step.
