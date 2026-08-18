@@ -29,6 +29,7 @@ use Ispluka\Core\Hotspot\HotspotActionService;
 use Ispluka\Core\Hotspot\HotspotAuditService;
 use Ispluka\Core\Hotspot\HotspotCrudService;
 use Ispluka\Core\Hotspot\HotspotRepository;
+use Ispluka\Core\Hotspot\HotspotValidityService;
 use Ispluka\Core\Hotspot\RouterOsHotspotGateway;
 use Ispluka\Core\Network\MikrotikAutomationService;
 use Ispluka\Core\Network\MikrotikConnectionClient;
@@ -84,7 +85,8 @@ $mikrotikRouterController = new MikrotikRouterController($routerService, $auth, 
 $tenantController = new TenantController($database, $auth, new RoleManager($database), $csrf);
 
 $hotspotRepository = new HotspotRepository($database->pdo());
-$hotspotCrud = new HotspotCrudService($database->pdo());
+$hotspotValidity = new HotspotValidityService($database);
+$hotspotCrud = new HotspotCrudService($database->pdo(), $hotspotValidity);
 $hotspotGateway = new RouterOsHotspotGateway(new RouterRepository($database), $secretBox, $mikrotikClient);
 $hotspotAudit = new HotspotAuditService($database->pdo());
 $hotspotActions = new HotspotActionService($database->pdo(), $hotspotGateway, $hotspotAudit);
