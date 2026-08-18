@@ -23,26 +23,7 @@ use Ispluka\Middleware\Authorize;
 use Ispluka\Middleware\RequireAuthentication;
 use Ispluka\Middleware\SubscriptionGuard;
 
-return static function (
-    Router $router,
-    LoginController $loginController,
-    SignupController $signupController,
-    SubscriptionController $subscriptions,
-    SubscriptionGuard $subscriptionGuard,
-    AuthManager $auth,
-    Csrf $csrf,
-    Authorize $authorize,
-    DashboardController $dashboardController,
-    CollectionController $collections,
-    CustomerController $customers,
-    CustomerServiceController $customerServices,
-    callable $csrfMiddleware,
-    MikrotikEnforcementAuditController $mikrotikAudit,
-    MikrotikManualActionController $mikrotikManual,
-    TenantController $tenants,
-    MikrotikRouterController $mikrotikRouters,
-    HotspotApiController $hotspot,
-): void {
+return static function (Router $router, LoginController $loginController, SignupController $signupController, SubscriptionController $subscriptions, SubscriptionGuard $subscriptionGuard, AuthManager $auth, Csrf $csrf, Authorize $authorize, DashboardController $dashboardController, CollectionController $collections, CustomerController $customers, CustomerServiceController $customerServices, callable $csrfMiddleware, MikrotikEnforcementAuditController $mikrotikAudit, MikrotikManualActionController $mikrotikManual, TenantController $tenants, MikrotikRouterController $mikrotikRouters, HotspotApiController $hotspot): void {
     $authentication = new RequireAuthentication($auth);
     $requireAuth = static function (Request $request, callable $next) use ($authentication, $subscriptionGuard): Response {
         return $authentication($request, static fn (Request $r): Response => $subscriptionGuard($r, $next));
@@ -79,7 +60,6 @@ return static function (
     $router->get('/customers', [$collections, 'customerSearchPage'], [$requireAuth, $customerView]);
     $router->get('/api/collection/invoices', [$collections, 'customerInvoices'], [$requireAuth, $paymentView]);
     $router->post('/api/collection', [$collections, 'collect'], [$requireAuth, $paymentManage, $csrfMiddleware]);
-
     $router->get('/api/customers', [$customers, 'index'], [$requireAuth, $customerView]);
     $router->get('/api/customer', [$customers, 'show'], [$requireAuth, $customerView]);
     $router->post('/api/customers', [$customers, 'store'], [$requireAuth, $customerCreate, $csrfMiddleware]);
@@ -99,8 +79,7 @@ return static function (
     $router->post('/api/networking/mikrotik/routers/test', [$mikrotikRouters, 'test'], [$requireAuth, $routerManage, $csrfMiddleware]);
     $router->post('/api/networking/mikrotik/routers/delete', [$mikrotikRouters, 'delete'], [$requireAuth, $routerManage, $csrfMiddleware]);
 
-    // Hotspot remains tenant-scoped and uses the existing router-management
-    // permission model until dedicated Hotspot permissions are introduced.
+    // Hotspot is tenant-scoped and temporarily uses router permissions until dedicated permissions exist.
     $router->get('/api/hotspot/profiles', [$hotspot, 'profiles'], [$requireAuth, $routerView]);
     $router->post('/api/hotspot/profiles', [$hotspot, 'createProfile'], [$requireAuth, $routerManage, $csrfMiddleware]);
     $router->get('/api/hotspot/users', [$hotspot, 'users'], [$requireAuth, $routerView]);
@@ -110,10 +89,14 @@ return static function (
     $router->get('/api/hotspot/routers/active', [$hotspot, 'activeUsers'], [$requireAuth, $routerView]);
     $router->post('/api/hotspot/users/disable', [$hotspot, 'disableUser'], [$requireAuth, $routerManage, $csrfMiddleware]);
     $router->post('/api/hotspot/users/enable', [$hotspot, 'enableUser'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->get('/api/hotspot/hosts', [$hotspot, 'hosts'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/ip-bindings', [$hotspot, 'bindings'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/walled-garden', [$hotspot, 'walledGarden'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/address-lists', [$hotspot, 'addressLists'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/logs', [$hotspot, 'logs'], [$requireAuth, $routerView]);
 
     $auditView = $authorize->permission('routers.view');
     $networkManage = $authorize->permission('routers.manage');
-    $router->get('/networking/customer', static fn (): Response => Response::text('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#2563eb"><link rel="stylesheet" href="/assets/css/app.css"><title>Customer Networking</title></head><body><main class="main"><div class="container" data-page="customer-networking"><div class="page-title"><div><h1 data-name>Customer Networking</h1><p class="muted"><span data-code>—</span> · <span data-phone>—</span></p></div><a class="btn btn-secondary" href="/">Back</a></div><p class="muted" data-error></p><section class="card stack"><div class="form-grid"><div><label>Router ID</label><input name="router_id" inputmode="numeric" placeholder="Router ID"></div><div><label>PPPoE Username</label><input name="username" placeholder="PPPoE username"></div></div><div class="actions"><button type="button" data-live-btn>Live Rx/Tx</button><button type="button" class="btn-secondary" data-usage-btn>6-Month Usage</button><a class="btn btn-secondary" data-router target="_blank" rel="noopener" hidden>Open Router :8080</a></div><div class="card"><h3>Live Network</h3><div data-live class="muted">Not loaded.</div></div><div><h3>Usage History</h3><div data-usage class="muted">Click 6-Month Usage.</div></div></section></div></main><script src="/assets/js/customer-networking.js" defer></script></body></html>'), [$requireAuth, $customerView]);
     $router->get('/networking/mikrotik/enforcement-audit', [$mikrotikAudit, 'page'], [$requireAuth, $auditView]);
     $router->get('/api/networking/mikrotik/audit', [$mikrotikAudit, 'reconciliation'], [$requireAuth, $auditView]);
     $router->get('/api/networking/mikrotik/pppoe/live', [$mikrotikAudit, 'live'], [$requireAuth, $auditView]);
