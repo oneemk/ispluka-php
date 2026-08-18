@@ -10,6 +10,73 @@ final class PppoeActivityRepository
 {
     public function __construct(private readonly PDO $pdo) {}
 
+    /**
+     * Reconcile one successful RouterOS snapshot.
+     *
+     * Only sessions belonging to this router are affected. Missing usernames
+     * are marked offline, while sessions present in the snapshot are upserted
+     * as online. Callers must invoke this only after a successful API snapshot.
+     *
+     * @param array<int,PppoeActivityState> $states
+     */
+    public function reconcileSnapshot(int $tenantId, int $routerId, array $states): void
+    {
+        $this->pdo->beginTransaction();
+
+        try {
+            $seen = [];
+
+            foreach ($states as $state) {
+                if (!$state instanceof PppoeActivityState) {
+                    continue;
+                }
+
+                if ($state->tenantId !== $tenantId || $state->routerId !== $routerId) {
+                    continue;
+                }
+
+                $seen[$state->username] = true;
+                $this->upsert($state);
+            }
+
+            if ($seen === []) {
+                $offline = $this->pdo->prepare(
+                    'UPDATE pppoe_activity_state
+                     SET online=FALSE, stale=FALSE, updated_at=CURRENT_TIMESTAMP
+                     WHERE tenant_id=:t AND router_id=:r'
+                );
+                $offline->execute([':t' => $tenantId, ':r' => $routerId]);
+            } else {
+                $placeholders = [];
+                $params = [':t' => $tenantId, ':r' => $routerId];
+
+                $index = 0;
+                foreach (array_keys($seen) as $username) {
+                    $key = ':u' . $index++;
+                    $placeholders[] = $key;
+                    $params[$key] = $username;
+                }
+
+                $sql = sprintf(
+                    'UPDATE pppoe_activity_state
+                     SET online=FALSE, stale=FALSE, updated_at=CURRENT_TIMESTAMP
+                     WHERE tenant_id=:t AND router_id=:r AND username NOT IN (%s)',
+                    implode(',', $placeholders)
+                );
+
+                $offline = $this->pdo->prepare($sql);
+                $offline->execute($params);
+            }
+
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
     public function markRouterSessionsOffline(int $tenantId, int $routerId): void
     {
         $s = $this->pdo->prepare(
@@ -40,9 +107,6 @@ final class PppoeActivityRepository
                 updated_at=CURRENT_TIMESTAMP'
         );
 
-        // PostgreSQL boolean parameters must be bound as booleans. Passing
-        // PHP false through PDO::execute(array) may become an empty string,
-        // which PostgreSQL rejects for a boolean column.
         $s->bindValue(':t', $state->tenantId, PDO::PARAM_INT);
         $s->bindValue(':r', $state->routerId, PDO::PARAM_INT);
         $s->bindValue(':u', $state->username, PDO::PARAM_STR);
