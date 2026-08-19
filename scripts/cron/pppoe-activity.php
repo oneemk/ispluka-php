@@ -9,6 +9,9 @@ use Ispluka\Core\Network\PppoeActivityCollector;
 use Ispluka\Core\Network\PppoeActivityRepository;
 use Ispluka\Core\Network\PppoeActivityRunCoordinator;
 use Ispluka\Core\Network\PppoeActivityScheduler;
+use Ispluka\Core\Network\PppoeInactivityFindingStore;
+use Ispluka\Core\Network\PppoeInactivityPolicy;
+use Ispluka\Core\Network\PppoeInactivityReconciler;
 use Ispluka\Core\Network\RouterOsApiClient;
 use Ispluka\Core\Network\RouterOsSshClient;
 use Ispluka\Core\Security\SecretBox;
@@ -63,6 +66,11 @@ try {
     $secretBox = new SecretBox((string) ($_ENV['APP_KEY'] ?? ''));
     $client = new MikrotikConnectionClient(new RouterOsApiClient(), new RouterOsSshClient());
     $repository = new PppoeActivityRepository($pdo);
+    $inactivity = new PppoeInactivityReconciler(
+        $pdo,
+        new PppoeInactivityPolicy(20),
+        new PppoeInactivityFindingStore($pdo),
+    );
     $currentRouter = null;
 
     $collector = new PppoeActivityCollector(
@@ -119,6 +127,12 @@ try {
                 ->execute([':e' => $error, ':t' => $tenantId, ':r' => $routerId]);
         }
 
+        $inactivityResult = $inactivity->reconcile(
+            $tenantId,
+            $routerId,
+            $status === 'success',
+        );
+
         $results[] = [
             'tenantId' => $tenantId,
             'routerId' => $routerId,
@@ -126,6 +140,7 @@ try {
             'status' => $status,
             'sessions' => (int) ($item['sessions'] ?? 0),
             'error' => $item['error'] ?? null,
+            'inactivity' => $inactivityResult,
         ];
     }
 
@@ -145,6 +160,13 @@ try {
         if ($result['error'] !== null) {
             $line .= ' error=' . preg_replace('/\s+/', ' ', (string) $result['error']);
         }
+        $inactive = $result['inactivity'];
+        $line .= sprintf(
+            ' inactivity=%s opened=%d resolved=%d',
+            $inactive['status'] ?? 'unknown',
+            (int) ($inactive['opened'] ?? 0),
+            (int) ($inactive['resolved'] ?? 0),
+        );
         fwrite($result['status'] === 'failed' ? STDERR : STDOUT, $line . "\n");
     }
 } catch (Throwable $e) {
