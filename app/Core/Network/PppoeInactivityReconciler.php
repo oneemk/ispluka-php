@@ -68,8 +68,9 @@ final class PppoeInactivityReconciler
                 continue;
             }
 
-            $this->findings->resolve($tenantId, $routerId, $username, $now->getTimestamp());
-            $resolved++;
+            if ($this->findings->resolve($tenantId, $routerId, $username, $now->getTimestamp())) {
+                $resolved++;
+            }
         }
 
         return [
