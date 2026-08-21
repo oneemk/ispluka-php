@@ -6,15 +6,16 @@ namespace Ispluka\Controllers;
 
 use Ispluka\Core\Auth\AuthManager;
 use Ispluka\Core\Http\Response;
+use Ispluka\Core\Security\Csrf;
 
 final class NetworkModuleController
 {
-    public function __construct(private readonly AuthManager $auth) {}
+    public function __construct(private readonly AuthManager $auth, private readonly Csrf $csrf) {}
 
     public function hotspot(): Response
     {
-        $csrf = htmlspecialchars((string) ($_SESSION['_csrf'] ?? ''), ENT_QUOTES, 'UTF-8');
-        return Response::text($this->layout('Hotspot', $csrf, <<<'HTML'
+        $token = htmlspecialchars($this->csrf->token(), ENT_QUOTES, 'UTF-8');
+        return Response::text($this->layout('Hotspot', $token, <<<'HTML'
 <section class="module-grid">
   <article class="panel"><div class="panel-head"><div><span class="panel-kicker">HOTSPOT</span><h2>Active Sessions</h2><p class="muted">Live MikroTik Hotspot sessions</p></div><button class="btn" data-sync>Sync</button></div><div class="table-wrap"><table><thead><tr><th>User</th><th>Address</th><th>MAC</th><th>Uptime</th><th>Router</th><th>Action</th></tr></thead><tbody data-sessions><tr><td colspan="6">Loading…</td></tr></tbody></table></div></article>
   <article class="panel"><div class="panel-head"><div><span class="panel-kicker">HOTSPOT</span><h2>Users</h2><p class="muted">Subscriber Hotspot accounts</p></div></div><div class="table-wrap"><table><thead><tr><th>User</th><th>Profile</th><th>Disabled</th><th>Router</th></tr></thead><tbody data-users><tr><td colspan="4">Loading…</td></tr></tbody></table></div></article>
