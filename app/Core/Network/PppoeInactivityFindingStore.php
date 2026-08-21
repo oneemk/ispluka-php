@@ -20,10 +20,12 @@ final class PppoeInactivityFindingStore
         $this->pdo->prepare($sql)->execute([':m'=>$message,':d'=>json_encode($details,JSON_THROW_ON_ERROR),':n'=>$now,':t'=>$tenantId,':r'=>$routerId,':u'=>$username]);
     }
 
-    public function resolve(int $tenantId,int $routerId,string $username,int $now):void
+    public function resolve(int $tenantId,int $routerId,string $username,int $now):bool
     {
         $sql="UPDATE pppoe_reconciliation_findings SET status='resolved',last_seen_at=TO_TIMESTAMP(:n),resolved_at=TO_TIMESTAMP(:n)
               WHERE tenant_id=:t AND router_id=:r AND username=:u AND finding_type='inactive' AND status='open'";
-        $this->pdo->prepare($sql)->execute([':n'=>$now,':t'=>$tenantId,':r'=>$routerId,':u'=>$username]);
+        $q=$this->pdo->prepare($sql);
+        $q->execute([':n'=>$now,':t'=>$tenantId,':r'=>$routerId,':u'=>$username]);
+        return $q->rowCount() > 0;
     }
 }
