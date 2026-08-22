@@ -30,16 +30,4 @@ if ($relativePath !== '' && !str_contains($relativePath, "\0")) {
 }
 
 $app = require dirname(__DIR__) . '/bootstrap/app.php';
-
-ob_start(static function (string $html): string {
-    if (stripos($html, '<html') === false || stripos($html, '</head>') === false) return $html;
-    if (stripos($html, 'professional-theme.css') === false) {
-        $html = preg_replace('~</head>~i', '<link rel="stylesheet" href="/assets/css/professional-theme.css?v=1"></head>', $html, 1) ?? $html;
-    }
-    if (stripos($html, 'global-ui.js') === false && stripos($html, '</body>') !== false) {
-        $html = preg_replace('~</body>~i', '<script src="/assets/js/global-ui.js?v=1"></script></body>', $html, 1) ?? $html;
-    }
-    return $html;
-});
-
-try { $app->run(); } finally { ob_end_flush(); }
+$app->run();
