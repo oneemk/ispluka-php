@@ -10,28 +10,16 @@ $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $relativePath = ltrim(rawurldecode($requestPath), '/');
 $publicRoot = __DIR__;
 
-// Only allow static files from the public directory. Never execute PHP files
-// through this fallback.
 if ($relativePath !== '' && !str_contains($relativePath, "\0")) {
     $assetPath = $publicRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
     $extension = strtolower(pathinfo($assetPath, PATHINFO_EXTENSION));
-
     $mimeTypes = [
-        'css' => 'text/css; charset=UTF-8',
-        'js' => 'application/javascript; charset=UTF-8',
-        'json' => 'application/json; charset=UTF-8',
-        'svg' => 'image/svg+xml',
-        'png' => 'image/png',
-        'jpg' => 'image/jpeg',
-        'jpeg' => 'image/jpeg',
-        'gif' => 'image/gif',
-        'webp' => 'image/webp',
-        'ico' => 'image/x-icon',
-        'woff' => 'font/woff',
-        'woff2' => 'font/woff2',
-        'ttf' => 'font/ttf',
+        'css' => 'text/css; charset=UTF-8', 'js' => 'application/javascript; charset=UTF-8',
+        'json' => 'application/json; charset=UTF-8', 'svg' => 'image/svg+xml',
+        'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+        'gif' => 'image/gif', 'webp' => 'image/webp', 'ico' => 'image/x-icon',
+        'woff' => 'font/woff', 'woff2' => 'font/woff2', 'ttf' => 'font/ttf',
     ];
-
     if (isset($mimeTypes[$extension]) && is_file($assetPath)) {
         header('Content-Type: ' . $mimeTypes[$extension]);
         header('Cache-Control: public, max-age=86400');
@@ -42,4 +30,16 @@ if ($relativePath !== '' && !str_contains($relativePath, "\0")) {
 }
 
 $app = require dirname(__DIR__) . '/bootstrap/app.php';
-$app->run();
+
+ob_start(static function (string $html): string {
+    if (stripos($html, '<html') === false || stripos($html, '</head>') === false) return $html;
+    if (stripos($html, 'professional-theme.css') === false) {
+        $html = preg_replace('~</head>~i', '<link rel="stylesheet" href="/assets/css/professional-theme.css?v=1"></head>', $html, 1) ?? $html;
+    }
+    if (stripos($html, 'global-ui.js') === false && stripos($html, '</body>') !== false) {
+        $html = preg_replace('~</body>~i', '<script src="/assets/js/global-ui.js?v=1"></script></body>', $html, 1) ?? $html;
+    }
+    return $html;
+});
+
+try { $app->run(); } finally { ob_end_flush(); }
