@@ -30,4 +30,16 @@ if ($relativePath !== '' && !str_contains($relativePath, "\0")) {
 }
 
 $app = require dirname(__DIR__) . '/bootstrap/app.php';
+
+// Inject the shared UI script into every HTML application response. This
+// keeps language switching available on every page, not only Dashboard.
+ob_start();
 $app->run();
+$output = ob_get_clean();
+
+if (is_string($output) && stripos($output, '<html') !== false && stripos($output, '</body>') !== false) {
+    $script = '<script src="/assets/js/global-ui.js?v=2"></script>';
+    $output = preg_replace('/<\/body>/i', $script . '</body>', $output, 1) ?? $output;
+}
+
+echo $output;
