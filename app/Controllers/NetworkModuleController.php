@@ -40,7 +40,9 @@ final class NetworkModuleController
 (function () {
     function esc(value) {
         return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
-            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];
+            var map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'};
+            if (c === "'") return '&#039;';
+            return map[c] || c;
         });
     }
     function render(el, rows, columns) {
@@ -54,7 +56,7 @@ final class NetworkModuleController
         }).join('');
     }
     async function getJson(url) {
-        var response = await fetch(url, {credentials: 'same-origin', headers: {Accept: 'application/json'}});
+        var response = await fetch(url, {credentials:'same-origin', headers:{Accept:'application/json'}});
         var json = await response.json();
         if (!response.ok) throw new Error((json.error && json.error.message) || 'Request failed');
         return json.data || [];
@@ -106,32 +108,17 @@ HTML;
         $csrf = htmlspecialchars($this->csrf->token(), ENT_QUOTES, 'UTF-8');
         $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
 
-        return '<!doctype html>'
-            . '<html lang="en"><head><meta charset="utf-8">'
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width,initial-scale=1">'
             . '<link rel="stylesheet" href="/assets/css/app.css?v=4">'
             . '<link rel="stylesheet" href="/assets/css/dashboard.css?v=5">'
-            . '<title>ISPLUKA ' . $safeTitle . '</title></head>'
-            . '<body class="dashboard-page"><div class="app-shell">'
-            . '<header class="app-header dashboard-header"><div class="container header-inner">'
-            . '<button class="menu-toggle" type="button" data-menu-toggle>☰</button>'
-            . '<a class="brand" href="/">ISPLUKA</a>'
-            . '<div class="header-tools">'
-            . '<div class="language-switch"><button type="button" data-language="en" class="language-btn active">EN</button><button type="button" data-language="bn" class="language-btn">বাংলা</button></div>'
-            . '<a class="header-icon" href="/customers">♙</a>'
-            . '<form method="post" action="/logout"><input type="hidden" name="_csrf" value="' . $csrf . '"><button type="submit" class="logout-button"><span data-i18n="logout">Logout</span></button></form>'
-            . '</div></div></header>'
-            . '<aside class="sidebar" data-sidebar><nav class="nav dashboard-nav">'
-            . '<a href="/"><span data-i18n="dashboard">Dashboard</span></a>'
-            . '<a href="/networking/mikrotik/routers"><span data-i18n="mikrotik_routers">MikroTik Routers</span></a>'
-            . '<a href="/networking/hotspot"><span data-i18n="hotspot">Hotspot</span></a>'
-            . '<a href="/networking/olt"><span data-i18n="olt">OLT</span></a>'
-            . '<a href="/networking/mikrotik/enforcement-audit"><span data-i18n="network_audit">Network Audit</span></a>'
-            . '</nav></aside>'
-            . '<main class="main main-with-sidebar"><div class="container">'
-            . '<section class="welcome-row"><div><span class="eyebrow">NETWORK</span><h1>' . $safeTitle . '</h1><p data-i18n="network_module_subtitle">Network infrastructure management.</p></div></section>'
-            . $body
-            . '</div></main></div>'
+            . '<title>ISPLUKA ' . $safeTitle . '</title></head><body class="dashboard-page">'
+            . '<div class="app-shell"><header class="app-header dashboard-header"><div class="container header-inner">'
+            . '<button class="menu-toggle" type="button" data-menu-toggle>☰</button><a class="brand" href="/">ISPLUKA</a>'
+            . '<div class="header-tools"><div class="language-switch"><button type="button" data-language="en" class="language-btn active">EN</button><button type="button" data-language="bn" class="language-btn">বাংলা</button></div>'
+            . '<a class="header-icon" href="/customers">♙</a><form method="post" action="/logout"><input type="hidden" name="_csrf" value="' . $csrf . '"><button type="submit" class="logout-button"><span data-i18n="logout">Logout</span></button></form></div></div></header>'
+            . '<aside class="sidebar" data-sidebar><nav class="nav dashboard-nav"><a href="/"><span data-i18n="dashboard">Dashboard</span></a><a href="/networking/mikrotik/routers"><span data-i18n="mikrotik_routers">MikroTik Routers</span></a><a href="/networking/hotspot"><span data-i18n="hotspot">Hotspot</span></a><a href="/networking/olt"><span data-i18n="olt">OLT</span></a><a href="/networking/mikrotik/enforcement-audit"><span data-i18n="network_audit">Network Audit</span></a></nav></aside>'
+            . '<main class="main main-with-sidebar"><div class="container"><section class="welcome-row"><div><span class="eyebrow">NETWORK</span><h1>' . $safeTitle . '</h1><p data-i18n="network_module_subtitle">Network infrastructure management.</p></div></section>' . $body . '</div></main></div>'
             . '<script src="/assets/js/app.js?v=6"></script></body></html>';
     }
 }
