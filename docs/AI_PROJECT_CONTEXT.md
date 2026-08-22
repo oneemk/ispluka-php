@@ -223,6 +223,7 @@ The project already has concepts/classes for:
 * Controllers
 * Middleware
 * Network/MikroTik integration
+* OLT Integration
 
 Preserve these patterns.
 
@@ -242,6 +243,7 @@ The application has:
 * Permission-based middleware
 * CSRF protection
 * Encryption
+* Audit Log
 
 Important roles/permissions must remain compatible with the existing implementation.
 
@@ -264,11 +266,11 @@ when adding new routes or features.
 The intended business role structure is:
 
 ```text
-Master Admin
-Admin
-Reseller
-Employee
-Customer
+Master Admin (fixed)
+Admin (can signup globally)
+Reseller (Admin can create)
+Employee (Admin can create_)
+Customer (Admin and Reseller Can create by their own platform)
 ```
 
 There should NOT be a separate Franchise role unless explicitly requested.
@@ -347,6 +349,7 @@ The dashboard should be organized in this operational order:
 
 Show:
 
+* Quick Action Button (Collection, Collection Report, Create Customer, Search Customer)
 * Total Customers
 * Active Services
 * Suspended Services
@@ -354,7 +357,7 @@ Show:
 * Outstanding Amount
 * Today's Collection
 * Monthly Collection
-* New Customers Today
+* This Month Recent Customers
 
 Use modern cards with clean typography.
 
@@ -370,6 +373,7 @@ Show:
 * Online Routers
 * Offline Routers
 * Network health/status
+* Total Online Active Customers + Offline Customers 
 * Important connectivity alerts
 
 The network section should be visually prominent but clean.
@@ -419,10 +423,12 @@ Display:
 
 Important actions may include:
 
-* Add Customer
+
 * Collection
-* Customers
+* Customers Search
+* Add Customer (PPPoE, Must select router and profile auto select from mikrotik sync)
 * MikroTik Routers
+* Hotspot Panel
 * Customer Networking
 * Enforcement Audit
 * Subscription
