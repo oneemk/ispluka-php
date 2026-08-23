@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Ispluka\Controllers\Api\HotspotController;
 use Ispluka\Controllers\Auth\LoginController;
 use Ispluka\Controllers\CustomerController;
 use Ispluka\Controllers\CustomerServiceController;
@@ -13,7 +14,7 @@ use Ispluka\Core\Security\Csrf;
 use Ispluka\Middleware\Authorize;
 use Ispluka\Middleware\RequireAuthentication;
 
-return static function (Router $router, LoginController $loginController, AuthManager $auth, Csrf $csrf, Authorize $authorize, CustomerController $customers, CustomerServiceController $customerServices, callable $csrfMiddleware, MikrotikEnforcementAuditController $mikrotikAudit): void {
+return static function (Router $router, LoginController $loginController, AuthManager $auth, Csrf $csrf, Authorize $authorize, CustomerController $customers, CustomerServiceController $customerServices, callable $csrfMiddleware, MikrotikEnforcementAuditController $mikrotikAudit, HotspotController $hotspot): void {
     $requireAuth = new RequireAuthentication($auth);
 
     $router->get('/', static function () use ($auth, $csrf): Response {
@@ -31,5 +32,24 @@ return static function (Router $router, LoginController $loginController, AuthMa
     $router->get('/networking/mikrotik/enforcement-audit', [$mikrotikAudit, 'page'], [$requireAuth, $auditView]);
     $router->get('/api/mikrotik/pppoe/enforcement-audit', [$mikrotikAudit, 'audit'], [$requireAuth, $auditView]);
     $router->get('/api/mikrotik/pppoe/enforcement-audit/summary', [$mikrotikAudit, 'summary'], [$requireAuth, $auditView]);
+
+    $hotspotView = $authorize->permission('routers.view');
+    $hotspotManage = $authorize->permission('routers.manage');
+    $router->get('/api/v1/hotspot/profiles', [$hotspot, 'profiles'], [$requireAuth, $hotspotView]);
+    $router->post('/api/v1/hotspot/profiles', [$hotspot, 'createProfile'], [$requireAuth, $hotspotManage, $csrfMiddleware]);
+    $router->get('/api/v1/hotspot/users', [$hotspot, 'users'], [$requireAuth, $hotspotView]);
+    $router->post('/api/v1/hotspot/users', [$hotspot, 'createUser'], [$requireAuth, $hotspotManage, $csrfMiddleware]);
+    $router->post('/api/v1/hotspot/users/activate', [$hotspot, 'activate'], [$requireAuth, $hotspotManage, $csrfMiddleware]);
+    $router->post('/api/v1/hotspot/users/status', [$hotspot, 'status'], [$requireAuth, $hotspotManage, $csrfMiddleware]);
+    $router->get('/api/v1/hotspot/sessions', [$hotspot, 'sessions'], [$requireAuth, $hotspotView]);
+    $router->post('/api/v1/hotspot/sessions/disconnect', [$hotspot, 'disconnect'], [$requireAuth, $hotspotManage, $csrfMiddleware]);
+    $router->get('/api/v1/hotspot/bindings', [$hotspot, 'bindings'], [$requireAuth, $hotspotView]);
+    $router->get('/api/v1/hotspot/hosts', [$hotspot, 'hosts'], [$requireAuth, $hotspotView]);
+    $router->get('/api/v1/hotspot/walled-garden', [$hotspot, 'walledGarden'], [$requireAuth, $hotspotView]);
+    $router->get('/api/v1/hotspot/address-lists', [$hotspot, 'addressLists'], [$requireAuth, $hotspotView]);
+    $router->get('/api/v1/hotspot/logs', [$hotspot, 'logs'], [$requireAuth, $hotspotView]);
+    $router->get('/api/v1/hotspot/router-time', [$hotspot, 'routerTime'], [$requireAuth, $hotspotView]);
+    $router->get('/api/v1/hotspot/active-users', [$hotspot, 'activeUsers'], [$requireAuth, $hotspotView]);
+
     $router->get('/login', [$loginController, 'show']); $router->post('/login', [$loginController, 'login']); $router->post('/logout', [$loginController, 'logout'], [$requireAuth]);
 };
