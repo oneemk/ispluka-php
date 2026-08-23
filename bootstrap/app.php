@@ -49,7 +49,7 @@ $loginController = new LoginController($auth, $session, $csrf);
 $customerController = new CustomerController(new CustomerService(new CustomerRepository($database)), $auth);
 $customerServiceController = new CustomerServiceController(new CustomerAccessService(new CustomerServiceRepository($database)), $auth, $encryption);
 $mikrotikEnforcementAuditController = new MikrotikEnforcementAuditController($database->pdo());
-$hotspotController = new HotspotController($database->pdo(), $auth, $secretBox, new RouterOsHotspotGateway($database, $secretBox));
+$hotspotController = new HotspotController($database->pdo(), $database, $auth, $secretBox, new RouterOsHotspotGateway($database, $secretBox));
 
 $csrfMiddleware = static function (Request $request, callable $next) use ($csrf): Response {
     if (!$csrf->validate($request->input('_csrf'))) return Response::json(['error' => ['message' => 'Invalid CSRF token.']], 419);
