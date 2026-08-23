@@ -38,7 +38,7 @@ $app->run();
 $output = ob_get_clean();
 
 if (is_string($output) && stripos($output, '<html') !== false && stripos($output, '</body>') !== false) {
-    $script = '<script src="/assets/js/global-ui.js?v=2"></script>';
+    $script = '<script src="/assets/js/global-ui.js?v=3"></script>';
     $output = preg_replace('/<\/body>/i', $script . '</body>', $output, 1) ?? $output;
 }
 
