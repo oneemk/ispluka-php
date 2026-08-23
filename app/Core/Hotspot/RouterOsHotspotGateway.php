@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Ispluka\Core\Hotspot;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Ispluka\Core\Database\Database;
 use Ispluka\Core\Network\RouterOsApiClient;
 use Ispluka\Core\Security\SecretBox;
-use DateTimeImmutable;
-use DateTimeZone;
 use RuntimeException;
 
 final class RouterOsHotspotGateway implements MikroTikHotspotGateway
@@ -46,11 +46,11 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
 
     public function disconnect(int $routerId, string $username): void
     {
-        $active = $this->activeUsers($routerId);
-        foreach ($active as $row) {
+        foreach ($this->activeUsers($routerId) as $row) {
             if ((string) ($row['user'] ?? '') !== $username) {
                 continue;
             }
+
             $id = (string) ($row['.id'] ?? '');
             if ($id !== '') {
                 $this->command($routerId, '/ip/hotspot/active/remove', ['numbers' => $id]);
@@ -64,30 +64,35 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
             'name' => (string) ($attributes['username'] ?? ''),
             'password' => (string) ($attributes['password'] ?? ''),
         ];
+
         foreach (['profile', 'rate-limit', 'limit-uptime', 'limit-bytes-total', 'shared-users', 'mac-address', 'comment'] as $key) {
             if (array_key_exists($key, $attributes) && $attributes[$key] !== null && $attributes[$key] !== '') {
                 $args[$key] = (string) $attributes[$key];
             }
         }
+
         if ($args['name'] === '' || $args['password'] === '') {
             throw new RuntimeException('Hotspot username and password are required.');
         }
+
         $this->command($routerId, '/ip/hotspot/user/add', $args);
     }
 
     public function updateUser(int $routerId, string $username, array $attributes): void
     {
         $rows = $this->command($routerId, '/ip/hotspot/user/print', ['?name' => $username]);
-        $id = (string) (($rows[0]['.id'] ?? ''));
+        $id = (string) ($rows[0]['.id'] ?? '');
         if ($id === '') {
             throw new RuntimeException('MikroTik Hotspot user not found.');
         }
+
         $args = ['numbers' => $id];
         foreach (['password', 'profile', 'rate-limit', 'limit-uptime', 'limit-bytes-total', 'shared-users', 'mac-address', 'comment', 'disabled'] as $key) {
             if (array_key_exists($key, $attributes)) {
                 $args[$key] = (string) $attributes[$key];
             }
         }
+
         $this->command($routerId, '/ip/hotspot/user/set', $args);
     }
 
@@ -104,16 +109,20 @@ final class RouterOsHotspotGateway implements MikroTikHotspotGateway
     /** @return array<int,array<string,string>> */
     private function command(int $routerId, string $command, array $args = []): array
     {
-        $s = $this->db->pdo()->prepare(
-            'SELECT host, api_port, username, password_encrypted FROM routers WHERE id=:id AND status=\'active\''
+        $stmt = $this->db->pdo()->prepare(
+            "SELECT host, api_port, username, encrypted_password, verify_ssl
+             FROM routers
+             WHERE id = :id AND status = 'active'"
         );
-        $s->execute([':id' => $routerId]);
-        $router = $s->fetch();
+        $stmt->execute([':id' => $routerId]);
+        $router = $stmt->fetch();
+
         if (!is_array($router)) {
             throw new RuntimeException('MikroTik router not found or inactive.');
         }
 
-        $router['password'] = $this->secrets->decrypt((string) $router['password_encrypted']);
+        $router['password'] = $this->secrets->decrypt((string) $router['encrypted_password']);
+
         $client = new RouterOsApiClient();
         try {
             $client->connect($router);
