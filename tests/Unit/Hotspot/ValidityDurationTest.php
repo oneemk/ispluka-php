@@ -1,20 +1,42 @@
 <?php
 
 declare(strict_types=1);
+
+namespace Tests\Unit\Hotspot;
+
 use Ispluka\Core\Hotspot\ValidityDuration;
+use InvalidArgumentException;
+use PHPUnit\Framework\TestCase;
 
-it('parses flexible hotspot validity', function () {
-    expect(ValidityDuration::parse('11d')->seconds)->toBe(950400);
-    expect(ValidityDuration::parse('20h')->seconds)->toBe(72000);
-    expect(ValidityDuration::parse('2d 6h 30m')->seconds)->toBe(196200);
-});
+final class ValidityDurationTest extends TestCase
+{
+    public function testParsesFlexibleHotspotValidity(): void
+    {
+        self::assertSame(950400, ValidityDuration::parse('11d')->seconds);
+        self::assertSame(72000, ValidityDuration::parse('20h')->seconds);
+        self::assertSame(196200, ValidityDuration::parse('2d 6h 30m')->seconds);
+    }
 
-it('normalizes whitespace and case', function () {
-    expect(ValidityDuration::parse(' 2D   6H ')->normalized)->toBe('2d 6h');
-});
+    public function testNormalizesWhitespaceAndCase(): void
+    {
+        self::assertSame('2d 6h', ValidityDuration::parse(' 2D   6H ')->normalized);
+    }
 
-it('rejects invalid and duplicate units', function () {
-    expect(fn()=>ValidityDuration::parse('10x'))->toThrow(InvalidArgumentException::class);
-    expect(fn()=>ValidityDuration::parse('2d 3d'))->toThrow(InvalidArgumentException::class);
-    expect(fn()=>ValidityDuration::parse('0h'))->toThrow(InvalidArgumentException::class);
-});
+    public function testRejectsInvalidAndDuplicateUnits(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        ValidityDuration::parse('10x');
+    }
+
+    public function testRejectsDuplicateUnits(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        ValidityDuration::parse('2d 3d');
+    }
+
+    public function testRejectsZeroUnits(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        ValidityDuration::parse('0h');
+    }
+}
