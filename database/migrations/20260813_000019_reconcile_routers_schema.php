@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use PDO;
+use RuntimeException;
 
 return new class {
     public function up(PDO $pdo): void
@@ -11,33 +12,24 @@ return new class {
             throw new RuntimeException('routers table does not exist. Run the core schema migration first.');
         }
 
-        $pdo->beginTransaction();
-        try {
-            $this->renameLegacyPasswordColumn($pdo);
-            $this->addColumnIfMissing($pdo, 'code', "VARCHAR(60)");
-            $this->addColumnIfMissing($pdo, 'api_ssl_port', "INTEGER");
-            $this->addColumnIfMissing($pdo, 'verify_ssl', "BOOLEAN NOT NULL DEFAULT true");
-            $this->addColumnIfMissing($pdo, 'metadata', "JSONB NOT NULL DEFAULT '{}'::jsonb");
+        $this->renameLegacyPasswordColumn($pdo);
+        $this->addColumnIfMissing($pdo, 'code', 'VARCHAR(60)');
+        $this->addColumnIfMissing($pdo, 'api_ssl_port', 'INTEGER');
+        $this->addColumnIfMissing($pdo, 'verify_ssl', 'BOOLEAN NOT NULL DEFAULT true');
+        $this->addColumnIfMissing($pdo, 'metadata', "JSONB NOT NULL DEFAULT '{}'::jsonb");
 
-            $pdo->exec("UPDATE routers SET code = 'router-' || id WHERE code IS NULL OR BTRIM(code) = ''");
-            $pdo->exec('ALTER TABLE routers ALTER COLUMN code SET NOT NULL');
-            $pdo->exec("CREATE UNIQUE INDEX IF NOT EXISTS uq_routers_tenant_code ON routers(tenant_id, code)");
+        $pdo->exec("UPDATE routers SET code = 'router-' || id WHERE code IS NULL OR BTRIM(code) = ''");
+        $pdo->exec('ALTER TABLE routers ALTER COLUMN code SET NOT NULL');
+        $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS uq_routers_tenant_code ON routers(tenant_id, code)');
 
-            if (!$this->columnExists($pdo, 'encrypted_password')) {
-                throw new RuntimeException('routers.encrypted_password is missing after reconciliation.');
-            }
-
-            $pdo->commit();
-        } catch (Throwable $e) {
-            $pdo->rollBack();
-            throw $e;
+        if (!$this->columnExists($pdo, 'encrypted_password')) {
+            throw new RuntimeException('routers.encrypted_password is missing after reconciliation.');
         }
     }
 
     public function down(PDO $pdo): void
     {
-        // This migration is intentionally non-destructive. Router credentials and
-        // metadata must never be removed automatically during a rollback.
+        // Intentionally non-destructive: router credentials and metadata are preserved.
     }
 
     private function renameLegacyPasswordColumn(PDO $pdo): void
