@@ -6,19 +6,7 @@ $money = static fn(float|int $v): string => '৳' . number_format((float)$v, 0);
 $number = static fn(float|int $v): string => number_format((float)$v);
 $csrfToken = htmlspecialchars((string)($csrfToken ?? $csrf ?? ''), ENT_QUOTES, 'UTF-8');
 ?>
-<!doctype html>
-<html lang="en" data-lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<link rel="stylesheet" href="/assets/css/app.css?v=6">
-<link rel="stylesheet" href="/assets/css/dashboard.css?v=14">
-<link rel="stylesheet" href="/assets/css/dashboard-polish.css?v=2">
-<link rel="stylesheet" href="/assets/css/dashboard-contrast.css?v=1">
-<title>ISPLUKA — Dashboard</title>
-</head>
-<body class="dashboard-page">
-<div class="app-shell">
+<!doctype html><html lang="en" data-lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="stylesheet" href="/assets/css/app.css?v=6"><link rel="stylesheet" href="/assets/css/dashboard.css?v=15"><link rel="stylesheet" href="/assets/css/dashboard-polish.css?v=2"><link rel="stylesheet" href="/assets/css/dashboard-contrast.css?v=1"><title>ISPLUKA — Dashboard</title></head><body class="dashboard-page"><div class="app-shell">
 <header class="app-header dashboard-header"><div class="container header-inner"><button class="menu-toggle" type="button" data-menu-toggle aria-label="Open navigation" aria-expanded="false">Menu</button><a class="brand" href="/">ISPLUKA</a><div class="header-tools"><label class="global-search"><input type="search" data-search placeholder="Search customer, phone or code…" autocomplete="off"></label><div class="language-switch" role="group" aria-label="Language"><button type="button" data-language="en" class="language-btn active" aria-pressed="true">EN</button><button type="button" data-language="bn" class="language-btn" aria-pressed="false">বাংলা</button></div><form method="post" action="/logout" class="logout-form"><input type="hidden" name="_csrf" value="<?=$csrfToken?>"><button type="submit" class="logout-button"><span data-i18n="logout">Logout</span></button></form></div></div></header>
 <aside class="sidebar" data-sidebar><nav class="nav dashboard-nav"><div class="nav-brand-mini"><div><strong>ISPLUKA</strong><small>ISP ERP</small></div></div><a class="active" href="/"><span data-i18n="dashboard">Dashboard</span></a><div class="nav-section" data-i18n="customers_billing">Customers & Billing</div><a href="/customers"><span data-i18n="customers">Customers</span></a><a href="/customers/create"><span data-i18n="add_customer">Add Customer</span></a><a href="/collection"><span data-i18n="collection">Collection</span></a><a href="/reports/collection"><span data-i18n="collection_report">Collection Report</span></a><div class="nav-section" data-i18n="network">Network</div><a href="/networking/mikrotik/routers"><span data-i18n="mikrotik_routers">MikroTik Routers</span></a><a href="/networking/olt"><span data-i18n="olt">OLT</span></a><a href="/networking/customer"><span data-i18n="customer_networking">Customer Networking</span></a><a href="/networking/mikrotik/enforcement-audit"><span data-i18n="network_audit">Enforcement Audit</span></a><a class="nav-standalone" href="/networking/hotspot"><span data-i18n="hotspot">Hotspot</span></a><div class="nav-section" data-i18n="management">Management</div><a href="/subscription"><span data-i18n="subscription">Subscription</span></a><form method="post" action="/logout" class="sidebar-logout-form"><input type="hidden" name="_csrf" value="<?=$csrfToken?>"><button type="submit"><span data-i18n="logout">Logout</span></button></form></nav></aside>
 <main class="main main-with-sidebar dashboard-main"><div class="container dashboard-container">
