@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Ispluka\Controllers\Api\HotspotController;
 use Ispluka\Controllers\Auth\LoginController;
 use Ispluka\Controllers\CustomerController;
 use Ispluka\Controllers\CustomerServiceController;
@@ -18,6 +19,8 @@ use Ispluka\Core\Http\Response;
 use Ispluka\Core\Routing\Router;
 use Ispluka\Core\Security\Csrf;
 use Ispluka\Core\Security\Encryption;
+use Ispluka\Core\Security\SecretBox;
+use Ispluka\Core\Hotspot\RouterOsHotspotGateway;
 use Ispluka\Middleware\Authorize;
 use Ispluka\Repositories\CustomerRepository;
 use Ispluka\Repositories\CustomerServiceRepository;
@@ -28,9 +31,7 @@ require_once dirname(__DIR__) . '/vendor/autoload.php';
 
 $root = dirname(__DIR__);
 $environmentFile = $root . '/.env';
-if (is_file($environmentFile)) {
-    Environment::load($environmentFile);
-}
+if (is_file($environmentFile)) Environment::load($environmentFile);
 
 $databaseConfig = require $root . '/config/database.php';
 $database = new Database($databaseConfig);
@@ -40,6 +41,7 @@ $authorization = new Authorization($database, $auth);
 $authorize = new Authorize($authorization);
 $csrf = new Csrf($session);
 $encryption = new Encryption((string) ($_ENV['APP_KEY'] ?? ''));
+$secretBox = new SecretBox((string) ($_ENV['APP_KEY'] ?? ''));
 
 $router = new Router();
 $exceptionHandler = new Handler();
@@ -47,20 +49,17 @@ $loginController = new LoginController($auth, $session, $csrf);
 $customerController = new CustomerController(new CustomerService(new CustomerRepository($database)), $auth);
 $customerServiceController = new CustomerServiceController(new CustomerAccessService(new CustomerServiceRepository($database)), $auth, $encryption);
 $mikrotikEnforcementAuditController = new MikrotikEnforcementAuditController($database->pdo());
+$hotspotController = new HotspotController($database->pdo(), $auth, $secretBox, new RouterOsHotspotGateway($database, $secretBox));
 
 $csrfMiddleware = static function (Request $request, callable $next) use ($csrf): Response {
-    if (!$csrf->validate($request->input('_csrf'))) {
-        return Response::json(['error' => ['message' => 'Invalid CSRF token.']], 419);
-    }
+    if (!$csrf->validate($request->input('_csrf'))) return Response::json(['error' => ['message' => 'Invalid CSRF token.']], 419);
     return $next($request);
 };
 
 $webRoutes = $root . '/routes/web.php';
 if (is_file($webRoutes)) {
     $registerRoutes = require $webRoutes;
-    if (is_callable($registerRoutes)) {
-        $registerRoutes($router, $loginController, $auth, $csrf, $authorize, $customerController, $customerServiceController, $csrfMiddleware, $mikrotikEnforcementAuditController);
-    }
+    if (is_callable($registerRoutes)) $registerRoutes($router, $loginController, $auth, $csrf, $authorize, $customerController, $customerServiceController, $csrfMiddleware, $mikrotikEnforcementAuditController, $hotspotController);
 }
 
 return new Application($router, $exceptionHandler);
