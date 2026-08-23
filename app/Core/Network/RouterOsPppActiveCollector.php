@@ -6,7 +6,7 @@ use RuntimeException;
 final class RouterOsPppActiveCollector
 {
  /** @param callable(string):array $query */
- public function __construct(private readonly $query){}
+ public function __construct(private readonly mixed $query){}
  public function collect(int $routerId):RouterOsPppActiveSnapshot
  {
   $rows=($this->query)('/ppp/active/print');
