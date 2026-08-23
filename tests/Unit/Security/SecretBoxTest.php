@@ -2,12 +2,20 @@
 
 declare(strict_types=1);
 
-use Ispluka\Core\Security\SecretBox;
+namespace Tests\Unit\Security;
 
-it('encrypts and decrypts secrets without exposing plaintext', function (): void {
-    $box = new SecretBox('test-key');
-    $secret = 'mikrotik-password-123';
-    $cipher = $box->encrypt($secret);
-    expect($cipher)->not->toContain($secret);
-    expect($box->decrypt($cipher))->toBe($secret);
-});
+use Ispluka\Core\Security\SecretBox;
+use PHPUnit\Framework\TestCase;
+
+final class SecretBoxTest extends TestCase
+{
+    public function testEncryptsAndDecryptsSecretsWithoutExposingPlaintext(): void
+    {
+        $box = new SecretBox('test-key');
+        $secret = 'mikrotik-password-123';
+        $cipher = $box->encrypt($secret);
+
+        self::assertStringNotContainsString($secret, $cipher);
+        self::assertSame($secret, $box->decrypt($cipher));
+    }
+}
