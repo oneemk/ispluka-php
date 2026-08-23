@@ -12,7 +12,7 @@ return new class {
             throw new RuntimeException('routers table does not exist. Run the core schema migration first.');
         }
 
-        $this->renameLegacyPasswordColumn($pdo);
+        $this->renameOrBackfillPasswordColumn($pdo);
         $this->addColumnIfMissing($pdo, 'code', 'VARCHAR(60)');
         $this->addColumnIfMissing($pdo, 'api_ssl_port', 'INTEGER');
         $this->addColumnIfMissing($pdo, 'verify_ssl', 'BOOLEAN NOT NULL DEFAULT true');
@@ -32,13 +32,21 @@ return new class {
         // Intentionally non-destructive: router credentials and metadata are preserved.
     }
 
-    private function renameLegacyPasswordColumn(PDO $pdo): void
+    private function renameOrBackfillPasswordColumn(PDO $pdo): void
     {
         $canonical = $this->columnExists($pdo, 'encrypted_password');
         $legacy = $this->columnExists($pdo, 'password_encrypted');
 
         if (!$canonical && $legacy) {
             $pdo->exec('ALTER TABLE routers RENAME COLUMN password_encrypted TO encrypted_password');
+            return;
+        }
+
+        if ($canonical && $legacy) {
+            $pdo->exec("UPDATE routers SET encrypted_password = password_encrypted
+                        WHERE (encrypted_password IS NULL OR BTRIM(encrypted_password) = '')
+                          AND password_encrypted IS NOT NULL
+                          AND BTRIM(password_encrypted) <> ''");
         }
     }
 
