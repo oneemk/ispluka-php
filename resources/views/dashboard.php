@@ -13,6 +13,7 @@ $csrfToken = htmlspecialchars((string)($csrfToken ?? $csrf ?? ''), ENT_QUOTES, '
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="stylesheet" href="/assets/css/app.css?v=6">
 <link rel="stylesheet" href="/assets/css/dashboard.css?v=12">
+<link rel="stylesheet" href="/assets/css/dashboard-polish.css?v=1">
 <title>ISPLUKA — Dashboard</title>
 </head>
 <body class="dashboard-page">
@@ -51,10 +52,10 @@ $csrfToken = htmlspecialchars((string)($csrfToken ?? $csrf ?? ''), ENT_QUOTES, '
 <section class="dashboard-block">
 <div class="simple-section-title"><h2 data-i18n="quick_actions">Quick Action</h2></div>
 <div class="quick-grid dashboard-quick-grid">
-<a href="/collection" class="quick-card primary"><div><strong data-i18n="collection">Collection</strong><small data-i18n="collect_payment">Collect customer payment</small></div><b>→</b></a>
-<a href="/customers" class="quick-card primary"><div><strong data-i18n="search_customer">Customer Search</strong><small data-i18n="search_customer_subtitle">Search customer, phone or code</small></div><b>→</b></a>
-<a href="/customers/create" class="quick-card primary"><div><strong data-i18n="create_pppoe_customer">Create PPPoE Customer</strong><small data-i18n="create_subscriber">Create a new subscriber</small></div><b>→</b></a>
-<a href="/reports/collection" class="quick-card primary"><div><strong data-i18n="bill_summary">Bill Summary</strong><small data-i18n="collection_report">Collection Report</small></div><b>→</b></a>
+<a href="/collection" class="quick-card primary"><div><strong data-i18n="collection">Collection</strong><small data-i18n="collect_payment">Collect customer payment</small></div><b>Open</b></a>
+<a href="/customers" class="quick-card primary"><div><strong data-i18n="search_customer">Customer Search</strong><small data-i18n="search_customer_subtitle">Search customer, phone or code</small></div><b>Open</b></a>
+<a href="/customers/create" class="quick-card primary"><div><strong data-i18n="create_pppoe_customer">Create PPPoE Customer</strong><small data-i18n="create_subscriber">Create a new subscriber</small></div><b>Open</b></a>
+<a href="/reports/collection" class="quick-card primary"><div><strong data-i18n="bill_summary">Bill Summary</strong><small data-i18n="collection_report">Collection Report</small></div><b>Open</b></a>
 </div></section>
 <section class="dashboard-block">
 <div class="simple-section-title"><h2 data-i18n="daily_operations">Daily Operations</h2></div>
