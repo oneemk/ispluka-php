@@ -6,6 +6,7 @@ use Ispluka\Controllers\Auth\LoginController;
 use Ispluka\Controllers\Auth\SignupController;
 use Ispluka\Controllers\CollectionController;
 use Ispluka\Controllers\CustomerController;
+use Ispluka\Controllers\CustomerNetworkingController;
 use Ispluka\Controllers\CustomerServiceController;
 use Ispluka\Controllers\DashboardController;
 use Ispluka\Controllers\HotspotApiController;
@@ -24,18 +25,130 @@ use Ispluka\Middleware\Authorize;
 use Ispluka\Middleware\RequireAuthentication;
 use Ispluka\Middleware\SubscriptionGuard;
 
-return static function (Router $router, LoginController $loginController, SignupController $signupController, SubscriptionController $subscriptions, SubscriptionGuard $subscriptionGuard, AuthManager $auth, Csrf $csrf, Authorize $authorize, DashboardController $dashboardController, CollectionController $collections, CustomerController $customers, CustomerServiceController $customerServices, callable $csrfMiddleware, MikrotikEnforcementAuditController $mikrotikAudit, MikrotikManualActionController $mikrotikManual, TenantController $tenants, MikrotikRouterController $mikrotikRouters, HotspotApiController $hotspot, NetworkModuleController $networkModules): void {
-    $authentication=new RequireAuthentication($auth);
-    $requireAuth=static function(Request $request,callable $next)use($authentication,$subscriptionGuard):Response{return$authentication($request,static fn(Request $r):Response=>$subscriptionGuard($r,$next));};
-    $router->get('/login',[$loginController,'show']);$router->post('/login',[$loginController,'login']);$router->get('/signup',[$signupController,'show']);$router->post('/signup',[$signupController,'store']);$router->get('/',[$dashboardController,'page'],[$requireAuth]);
-    $masterOnly=$authorize->role('master_admin');$routerView=$authorize->permission('routers.view');$routerManage=$authorize->permission('routers.manage');
-    $router->get('/admin',static fn():Response=>Response::redirect('/admin/tenants'),[$requireAuth,$masterOnly]);$router->get('/admin/tenants',[$tenants,'page'],[$requireAuth,$masterOnly]);$router->post('/admin/tenants',[$tenants,'store'],[$requireAuth,$masterOnly,$csrfMiddleware]);$router->get('/admin/subscriptions',[$subscriptions,'page'],[$requireAuth,$masterOnly]);$router->post('/admin/subscriptions',[$subscriptions,'extend'],[$requireAuth,$masterOnly,$csrfMiddleware]);
-    $customerView=$authorize->permission('customers.view');$customerCreate=$authorize->permission('customers.create');$customerUpdate=$authorize->permission('customers.update');$customerDelete=$authorize->permission('customers.delete');$paymentView=$authorize->permission('payments.view');$paymentManage=$authorize->permission('payments.manage');$reportView=$authorize->permission('reports.view');$serviceView=$authorize->permission('services.view');$serviceManage=$authorize->permission('services.manage');
-    $router->get('/collection',[$collections,'collectionPage'],[$requireAuth,$paymentManage]);$router->get('/reports/collection',[$collections,'reportPage'],[$requireAuth,$reportView]);$router->get('/customers/create',[$collections,'customerCreatePage'],[$requireAuth,$customerCreate]);$router->get('/customers',[$collections,'customerSearchPage'],[$requireAuth,$customerView]);$router->get('/api/collection/invoices',[$collections,'customerInvoices'],[$requireAuth,$paymentView]);$router->post('/api/collection',[$collections,'collect'],[$requireAuth,$paymentManage,$csrfMiddleware]);$router->get('/api/customers',[$customers,'index'],[$requireAuth,$customerView]);$router->get('/api/customer',[$customers,'show'],[$requireAuth,$customerView]);$router->post('/api/customers',[$customers,'store'],[$requireAuth,$customerCreate,$csrfMiddleware]);$router->post('/api/customer/update',[$customers,'update'],[$requireAuth,$customerUpdate,$csrfMiddleware]);$router->post('/api/customer/delete',[$customers,'destroy'],[$requireAuth,$customerDelete,$csrfMiddleware]);$router->get('/api/customer-services',[$customerServices,'index'],[$requireAuth,$serviceView]);$router->post('/api/customer-services',[$customerServices,'store'],[$requireAuth,$serviceManage,$csrfMiddleware]);$router->post('/api/customer-service/status',[$customerServices,'status'],[$requireAuth,$serviceManage,$csrfMiddleware]);
-    $router->get('/networking/mikrotik/routers',[$mikrotikRouters,'page'],[$requireAuth,$routerView]);$router->get('/api/networking/mikrotik/routers',[$mikrotikRouters,'index'],[$requireAuth,$routerView]);$router->get('/api/networking/mikrotik/routers/status',[$mikrotikRouters,'status'],[$requireAuth,$routerView]);$router->get('/api/networking/mikrotik/pppoe/active',[$mikrotikRouters,'activePppoe'],[$requireAuth,$routerView]);$router->post('/api/networking/mikrotik/pppoe/disconnect',[$mikrotikRouters,'disconnectPppoe'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->post('/api/networking/mikrotik/routers',[$mikrotikRouters,'store'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->post('/api/networking/mikrotik/routers/update',[$mikrotikRouters,'update'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->post('/api/networking/mikrotik/routers/test',[$mikrotikRouters,'test'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->post('/api/networking/mikrotik/routers/delete',[$mikrotikRouters,'delete'],[$requireAuth,$routerManage,$csrfMiddleware]);
-    $router->get('/networking/hotspot',[$networkModules,'hotspot'],[$requireAuth,$routerView]);$router->get('/networking/olt',[$networkModules,'olt'],[$requireAuth,$routerView]);
-    $router->get('/api/hotspot/profiles',[$hotspot,'profiles'],[$requireAuth,$routerView]);$router->post('/api/hotspot/profiles',[$hotspot,'createProfile'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->patch('/api/hotspot/profiles/update',[$hotspot,'updateProfile'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->delete('/api/hotspot/profiles/delete',[$hotspot,'deleteProfile'],[$requireAuth,$routerManage,$csrfMiddleware]);
-    $router->get('/api/hotspot/users',[$hotspot,'users'],[$requireAuth,$routerView]);$router->post('/api/hotspot/users',[$hotspot,'createUser'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->patch('/api/hotspot/users/update',[$hotspot,'updateUser'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->post('/api/hotspot/users/activate',[$hotspot,'activateUser'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->post('/api/hotspot/users/disable',[$hotspot,'disableUser'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->post('/api/hotspot/users/enable',[$hotspot,'enableUser'],[$requireAuth,$routerManage,$csrfMiddleware]);
-    $router->get('/api/hotspot/sessions',[$hotspot,'sessions'],[$requireAuth,$routerView]);$router->post('/api/hotspot/sessions/disconnect',[$hotspot,'disconnect'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->post('/api/hotspot/sessions/sync',[$hotspot,'syncSessions'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->get('/api/hotspot/routers/time-check',[$hotspot,'routerTime'],[$requireAuth,$routerView]);$router->get('/api/hotspot/routers/active',[$hotspot,'activeUsers'],[$requireAuth,$routerView]);$router->get('/api/hotspot/hosts',[$hotspot,'hosts'],[$requireAuth,$routerView]);$router->get('/api/hotspot/ip-bindings',[$hotspot,'bindings'],[$requireAuth,$routerView]);$router->get('/api/hotspot/walled-garden',[$hotspot,'walledGarden'],[$requireAuth,$routerView]);$router->get('/api/hotspot/address-lists',[$hotspot,'addressLists'],[$requireAuth,$routerView]);$router->get('/api/hotspot/logs',[$hotspot,'logs'],[$requireAuth,$routerView]);$router->get('/api/hotspot/operational/ip-bindings',[$hotspot,'operationalResource'],[$requireAuth,$routerView]);$router->post('/api/hotspot/operational/ip-bindings',[$hotspot,'createOperationalResource'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->delete('/api/hotspot/operational/ip-bindings',[$hotspot,'deleteOperationalResource'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->get('/api/hotspot/operational/walled-garden',[$hotspot,'operationalResource'],[$requireAuth,$routerView]);$router->post('/api/hotspot/operational/walled-garden',[$hotspot,'createOperationalResource'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->delete('/api/hotspot/operational/walled-garden',[$hotspot,'deleteOperationalResource'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->get('/api/hotspot/operational/address-lists',[$hotspot,'operationalResource'],[$requireAuth,$routerView]);$router->post('/api/hotspot/operational/address-lists',[$hotspot,'createOperationalResource'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->delete('/api/hotspot/operational/address-lists',[$hotspot,'deleteOperationalResource'],[$requireAuth,$routerManage,$csrfMiddleware]);$router->get('/api/hotspot/traffic',[$hotspot,'traffic'],[$requireAuth,$routerView]);$router->get('/api/hotspot/login-history',[$hotspot,'loginHistory'],[$requireAuth,$routerView]);$router->get('/api/hotspot/router-logs',[$hotspot,'routerLogs'],[$requireAuth,$routerView]);
-    $auditView=$authorize->permission('routers.view');$networkManage=$authorize->permission('routers.manage');$router->get('/networking/mikrotik/enforcement-audit',[$mikrotikAudit,'page'],[$requireAuth,$auditView]);$router->get('/api/networking/mikrotik/audit',[$mikrotikAudit,'reconciliation'],[$requireAuth,$auditView]);$router->get('/api/networking/mikrotik/pppoe/live',[$mikrotikAudit,'live'],[$requireAuth,$auditView]);$router->get('/api/networking/mikrotik/pppoe/usage',[$mikrotikAudit,'usage'],[$requireAuth,$auditView]);$router->get('/api/mikrotik/pppoe/enforcement-audit',[$mikrotikAudit,'audit'],[$requireAuth,$auditView]);$router->get('/api/mikrotik/pppoe/enforcement-audit/summary',[$mikrotikAudit,'summary'],[$requireAuth,$auditView]);$router->post('/api/networking/mikrotik/pppoe/action',[$mikrotikManual,'execute'],[$requireAuth,$networkManage,$csrfMiddleware]);$router->get('/subscription',[$subscriptions,'page'],[$requireAuth]);$router->post('/logout',[$loginController,'logout'],[$requireAuth]);
+return static function (
+    Router $router,
+    LoginController $loginController,
+    SignupController $signupController,
+    SubscriptionController $subscriptions,
+    SubscriptionGuard $subscriptionGuard,
+    AuthManager $auth,
+    Csrf $csrf,
+    Authorize $authorize,
+    DashboardController $dashboardController,
+    CollectionController $collections,
+    CustomerController $customers,
+    CustomerServiceController $customerServices,
+    callable $csrfMiddleware,
+    MikrotikEnforcementAuditController $mikrotikAudit,
+    MikrotikManualActionController $mikrotikManual,
+    TenantController $tenants,
+    MikrotikRouterController $mikrotikRouters,
+    HotspotApiController $hotspot,
+    NetworkModuleController $networkModules,
+    CustomerNetworkingController $customerNetworking,
+): void {
+    $authentication = new RequireAuthentication($auth);
+    $requireAuth = static function (Request $request, callable $next) use ($authentication, $subscriptionGuard): Response {
+        return $authentication($request, static fn (Request $r): Response => $subscriptionGuard($r, $next));
+    };
+
+    $router->get('/login', [$loginController, 'show']);
+    $router->post('/login', [$loginController, 'login']);
+    $router->get('/signup', [$signupController, 'show']);
+    $router->post('/signup', [$signupController, 'store']);
+    $router->get('/', [$dashboardController, 'page'], [$requireAuth]);
+
+    $masterOnly = $authorize->role('master_admin');
+    $routerView = $authorize->permission('routers.view');
+    $routerManage = $authorize->permission('routers.manage');
+
+    $router->get('/admin', static fn (): Response => Response::redirect('/admin/tenants'), [$requireAuth, $masterOnly]);
+    $router->get('/admin/tenants', [$tenants, 'page'], [$requireAuth, $masterOnly]);
+    $router->post('/admin/tenants', [$tenants, 'store'], [$requireAuth, $masterOnly, $csrfMiddleware]);
+    $router->get('/admin/subscriptions', [$subscriptions, 'page'], [$requireAuth, $masterOnly]);
+    $router->post('/admin/subscriptions', [$subscriptions, 'extend'], [$requireAuth, $masterOnly, $csrfMiddleware]);
+
+    $customerView = $authorize->permission('customers.view');
+    $customerCreate = $authorize->permission('customers.create');
+    $customerUpdate = $authorize->permission('customers.update');
+    $customerDelete = $authorize->permission('customers.delete');
+    $paymentView = $authorize->permission('payments.view');
+    $paymentManage = $authorize->permission('payments.manage');
+    $reportView = $authorize->permission('reports.view');
+    $serviceView = $authorize->permission('services.view');
+    $serviceManage = $authorize->permission('services.manage');
+
+    $router->get('/collection', [$collections, 'collectionPage'], [$requireAuth, $paymentManage]);
+    $router->get('/reports/collection', [$collections, 'reportPage'], [$requireAuth, $reportView]);
+    $router->get('/customers/create', [$collections, 'customerCreatePage'], [$requireAuth, $customerCreate]);
+    $router->get('/customers', [$collections, 'customerSearchPage'], [$requireAuth, $customerView]);
+    $router->get('/api/collection/invoices', [$collections, 'customerInvoices'], [$requireAuth, $paymentView]);
+    $router->post('/api/collection', [$collections, 'collect'], [$requireAuth, $paymentManage, $csrfMiddleware]);
+    $router->get('/api/customers', [$customers, 'index'], [$requireAuth, $customerView]);
+    $router->get('/api/customer', [$customers, 'show'], [$requireAuth, $customerView]);
+    $router->post('/api/customers', [$customers, 'store'], [$requireAuth, $customerCreate, $csrfMiddleware]);
+    $router->post('/api/customer/update', [$customers, 'update'], [$requireAuth, $customerUpdate, $csrfMiddleware]);
+    $router->post('/api/customer/delete', [$customers, 'destroy'], [$requireAuth, $customerDelete, $csrfMiddleware]);
+    $router->get('/api/customer-services', [$customerServices, 'index'], [$requireAuth, $serviceView]);
+    $router->post('/api/customer-services', [$customerServices, 'store'], [$requireAuth, $serviceManage, $csrfMiddleware]);
+    $router->post('/api/customer-service/status', [$customerServices, 'status'], [$requireAuth, $serviceManage, $csrfMiddleware]);
+
+    $router->get('/networking/customer', [$customerNetworking, 'page'], [$requireAuth, $customerView]);
+    $router->get('/networking/mikrotik/routers', [$mikrotikRouters, 'page'], [$requireAuth, $routerView]);
+    $router->get('/api/networking/mikrotik/routers', [$mikrotikRouters, 'index'], [$requireAuth, $routerView]);
+    $router->get('/api/networking/mikrotik/routers/status', [$mikrotikRouters, 'status'], [$requireAuth, $routerView]);
+    $router->get('/api/networking/mikrotik/pppoe/active', [$mikrotikRouters, 'activePppoe'], [$requireAuth, $routerView]);
+    $router->post('/api/networking/mikrotik/pppoe/disconnect', [$mikrotikRouters, 'disconnectPppoe'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->post('/api/networking/mikrotik/routers', [$mikrotikRouters, 'store'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->post('/api/networking/mikrotik/routers/update', [$mikrotikRouters, 'update'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->post('/api/networking/mikrotik/routers/test', [$mikrotikRouters, 'test'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->post('/api/networking/mikrotik/routers/delete', [$mikrotikRouters, 'delete'], [$requireAuth, $routerManage, $csrfMiddleware]);
+
+    $router->get('/networking/hotspot', [$networkModules, 'hotspot'], [$requireAuth, $routerView]);
+    $router->get('/networking/olt', [$networkModules, 'olt'], [$requireAuth, $routerView]);
+
+    $router->get('/api/hotspot/profiles', [$hotspot, 'profiles'], [$requireAuth, $routerView]);
+    $router->post('/api/hotspot/profiles', [$hotspot, 'createProfile'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->patch('/api/hotspot/profiles/update', [$hotspot, 'updateProfile'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->delete('/api/hotspot/profiles/delete', [$hotspot, 'deleteProfile'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->get('/api/hotspot/users', [$hotspot, 'users'], [$requireAuth, $routerView]);
+    $router->post('/api/hotspot/users', [$hotspot, 'createUser'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->patch('/api/hotspot/users/update', [$hotspot, 'updateUser'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->post('/api/hotspot/users/activate', [$hotspot, 'activateUser'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->post('/api/hotspot/users/disable', [$hotspot, 'disableUser'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->post('/api/hotspot/users/enable', [$hotspot, 'enableUser'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->get('/api/hotspot/sessions', [$hotspot, 'sessions'], [$requireAuth, $routerView]);
+    $router->post('/api/hotspot/sessions/disconnect', [$hotspot, 'disconnect'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->post('/api/hotspot/sessions/sync', [$hotspot, 'syncSessions'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->get('/api/hotspot/routers/time-check', [$hotspot, 'routerTime'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/routers/active', [$hotspot, 'activeUsers'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/hosts', [$hotspot, 'hosts'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/ip-bindings', [$hotspot, 'bindings'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/walled-garden', [$hotspot, 'walledGarden'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/address-lists', [$hotspot, 'addressLists'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/logs', [$hotspot, 'logs'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/operational/ip-bindings', [$hotspot, 'operationalResource'], [$requireAuth, $routerView]);
+    $router->post('/api/hotspot/operational/ip-bindings', [$hotspot, 'createOperationalResource'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->delete('/api/hotspot/operational/ip-bindings', [$hotspot, 'deleteOperationalResource'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->get('/api/hotspot/operational/walled-garden', [$hotspot, 'operationalResource'], [$requireAuth, $routerView]);
+    $router->post('/api/hotspot/operational/walled-garden', [$hotspot, 'createOperationalResource'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->delete('/api/hotspot/operational/walled-garden', [$hotspot, 'deleteOperationalResource'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->get('/api/hotspot/operational/address-lists', [$hotspot, 'operationalResource'], [$requireAuth, $routerView]);
+    $router->post('/api/hotspot/operational/address-lists', [$hotspot, 'createOperationalResource'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->delete('/api/hotspot/operational/address-lists', [$hotspot, 'deleteOperationalResource'], [$requireAuth, $routerManage, $csrfMiddleware]);
+    $router->get('/api/hotspot/traffic', [$hotspot, 'traffic'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/login-history', [$hotspot, 'loginHistory'], [$requireAuth, $routerView]);
+    $router->get('/api/hotspot/router-logs', [$hotspot, 'routerLogs'], [$requireAuth, $routerView]);
+
+    $auditView = $authorize->permission('routers.view');
+    $networkManage = $authorize->permission('routers.manage');
+    $router->get('/networking/mikrotik/enforcement-audit', [$mikrotikAudit, 'page'], [$requireAuth, $auditView]);
+    $router->get('/api/networking/mikrotik/audit', [$mikrotikAudit, 'reconciliation'], [$requireAuth, $auditView]);
+    $router->get('/api/networking/mikrotik/pppoe/live', [$mikrotikAudit, 'live'], [$requireAuth, $auditView]);
+    $router->get('/api/networking/mikrotik/pppoe/usage', [$mikrotikAudit, 'usage'], [$requireAuth, $auditView]);
+    $router->get('/api/mikrotik/pppoe/enforcement-audit', [$mikrotikAudit, 'audit'], [$requireAuth, $auditView]);
+    $router->get('/api/mikrotik/pppoe/enforcement-audit/summary', [$mikrotikAudit, 'summary'], [$requireAuth, $auditView]);
+    $router->post('/api/networking/mikrotik/pppoe/action', [$mikrotikManual, 'execute'], [$requireAuth, $networkManage, $csrfMiddleware]);
+    $router->get('/subscription', [$subscriptions, 'page'], [$requireAuth]);
+    $router->post('/logout', [$loginController, 'logout'], [$requireAuth]);
 };
