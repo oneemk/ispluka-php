@@ -52,6 +52,9 @@ final class CustomerController
                 'nid' => $request->input('nid'),
                 'address' => $request->input('address'),
                 'area' => $request->input('area'),
+                'latitude' => $request->input('latitude'),
+                'longitude' => $request->input('longitude'),
+                'status' => $request->input('status', 'active'),
                 'reseller_id' => $request->input('reseller_id'),
                 'billing_day' => $request->input('billing_day', 1),
                 'credit_limit' => $request->input('credit_limit', 0),
@@ -71,6 +74,7 @@ final class CustomerController
             $data = array_filter([
                 'name' => $request->input('name'), 'phone' => $request->input('phone'), 'email' => $request->input('email'),
                 'nid' => $request->input('nid'), 'address' => $request->input('address'), 'area' => $request->input('area'),
+                'latitude' => $request->input('latitude'), 'longitude' => $request->input('longitude'),
                 'status' => $request->input('status'), 'billing_day' => $request->input('billing_day'),
                 'credit_limit' => $request->input('credit_limit'), 'reseller_id' => $request->input('reseller_id'),
             ], static fn ($value) => $value !== null);
