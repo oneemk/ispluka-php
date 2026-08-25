@@ -17,6 +17,8 @@ final class PaymentProcessor
             throw new RuntimeException('Invalid verified payment.');
         }
 
+        $gateway = strtolower(trim($gateway));
+        $method = in_array($gateway, ['cash', 'bank', 'bkash', 'nagad', 'card', 'other'], true) ? $gateway : 'other';
         $reference = strtoupper(substr(preg_replace('/[^A-Za-z0-9._:-]+/', '-', $gateway . ':' . $transactionId) ?: '', 0, 120));
         if ($reference === '') throw new RuntimeException('Payment reference could not be generated.');
 
@@ -36,7 +38,7 @@ final class PaymentProcessor
                 ':t' => $tenantId,
                 ':c' => $customerId,
                 ':reference' => $reference,
-                ':method' => $gateway,
+                ':method' => $method,
                 ':gateway' => $gateway,
                 ':amount' => $amount,
                 ':transaction_id' => $transactionId,
