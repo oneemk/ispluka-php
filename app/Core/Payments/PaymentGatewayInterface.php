@@ -6,7 +6,9 @@ namespace Ispluka\Core\Payments;
 
 interface PaymentGatewayInterface
 {
-    public function initiate(array $payment): array;
-    public function verify(string $reference): array;
-    public function refund(string $reference, int $amountMinor): array;
+    public function initiate(array $payment, array $customer): array;
+
+    public function verify(array $payload): array;
+
+    public function refund(string $transactionId, int $amount): array;
 }
